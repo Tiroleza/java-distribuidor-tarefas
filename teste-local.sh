@@ -1,25 +1,17 @@
 #!/bin/bash
 
-echo "=== TESTE LOCAL COM MÚLTIPLAS INSTÂNCIAS ==="
-echo "Este script executa múltiplas instâncias do Receptor para teste local"
+echo "=== SISTEMA DE TESTES LOCAIS ==="
+echo "Este script executa o sistema distribuído localmente com 4 portas"
 echo ""
 
-# Compilar primeiro
-echo "Compilando classes..."
-cd codigo-ref/Servidor
+# Compilar todas as classes de teste
+echo "Compilando classes de teste..."
+cd Testes
 javac *.java
 if [ $? -ne 0 ]; then
     echo "Erro na compilação!"
     exit 1
 fi
-
-cd ../Cliente
-javac *.java
-if [ $? -ne 0 ]; then
-    echo "Erro na compilação!"
-    exit 1
-fi
-
 echo "✓ Compilação concluída"
 echo ""
 
@@ -27,36 +19,62 @@ echo ""
 cleanup() {
     echo ""
     echo "Encerrando processos..."
-    pkill -f "java Receptor"
-    pkill -f "java Distribuidor"
+    pkill -f "java ReceptorLocal"
+    pkill -f "java DistribuidorLocal"
+    pkill -f "java ClienteServidorLocal"
     exit 0
 }
 
 # Capturar Ctrl+C
 trap cleanup SIGINT
 
-echo "Iniciando múltiplas instâncias do Receptor..."
-echo "Pressione Ctrl+C para parar todos os processos"
+echo "Escolha uma opção:"
+echo "1. Teste automático completo (ReceptorLocal + DistribuidorLocal)"
+echo "2. Teste super rápido (ClienteServidorLocal)"
+echo "3. Executar apenas ReceptorLocal (4 portas)"
+echo "4. Executar apenas DistribuidorLocal"
+echo "5. Estimar tamanho máximo do vetor"
 echo ""
+read -p "Opção: " opcao
 
-# Iniciar receptores em portas diferentes
-cd ../Servidor
-java Receptor 12345 &
-java Receptor 12346 &
-java Receptor 12347 &
-java Receptor 12348 &
+case $opcao in
+    1)
+        echo ""
+        echo "Iniciando ReceptorLocal em background..."
+        java ReceptorLocal &
+        sleep 3
+        
+        echo "Iniciando DistribuidorLocal..."
+        java DistribuidorLocal
+        ;;
+    2)
+        echo ""
+        echo "Executando teste super rápido..."
+        java ClienteServidorLocal
+        ;;
+    3)
+        echo ""
+        echo "Executando ReceptorLocal..."
+        echo "Pressione Ctrl+C para parar"
+        java ReceptorLocal
+        ;;
+    4)
+        echo ""
+        echo "Executando DistribuidorLocal..."
+        echo "IMPORTANTE: Certifique-se de que ReceptorLocal está rodando!"
+        java DistribuidorLocal
+        ;;
+    5)
+        echo ""
+        echo "Estimando tamanho máximo do vetor..."
+        echo "Execute com: java -Xmx4G MaiorVetorAproximado"
+        java MaiorVetorAproximado
+        ;;
+    *)
+        echo "Opção inválida!"
+        exit 1
+        ;;
+esac
 
-echo "4 instâncias do Receptor iniciadas nas portas 12345-12348"
-echo "Aguardando 3 segundos para estabilização..."
-sleep 3
-
-echo ""
-echo "Iniciando DistribuidorLocalGrande..."
-echo ""
-
-# Executar distribuidor local com vetor grande
-cd ../Cliente
-java DistribuidorLocalGrande
-
-# Aguardar
+# Aguardar processos em background
 wait

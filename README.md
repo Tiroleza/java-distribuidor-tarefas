@@ -1,154 +1,180 @@
-# Sistema Distribuído de Contagem
+# Sistema Distribuído de Contagem - Java
 
-Este projeto implementa um sistema distribuído de contagem em Java, onde um programa Distribuidor (D) coordena a contagem de números em um vetor grande, dividindo o trabalho entre múltiplos programas Receptores (R) que executam em paralelo.
+Este repositório contém duas versões completas do sistema distribuído de contagem conforme especificado no documento:
 
-## Estrutura do Sistema
+## Estrutura do Repositório
 
-### Classes de Comunicação
+```
+├── Cliente/           # Versão principal (documento oficial)
+│   ├── Comunicado.java
+│   ├── Pedido.java
+│   ├── Resposta.java
+│   ├── ComunicadoEncerramento.java
+│   └── Distribuidor.java
+├── Servidor/          # Versão principal (documento oficial)
+│   ├── Comunicado.java
+│   ├── Pedido.java
+│   ├── Resposta.java
+│   ├── ComunicadoEncerramento.java
+│   └── Receptor.java
+└── Testes/            # Versão para testes locais
+    ├── Comunicado.java
+    ├── Pedido.java
+    ├── Resposta.java
+    ├── ComunicadoEncerramento.java
+    ├── ReceptorLocal.java      # 4 portas locais
+    ├── DistribuidorLocal.java  # Vetor menor (metade do estimado)
+    ├── ClienteServidorLocal.java # Teste automático
+    └── MaiorVetorAproximado.java # Estimativa de tamanho máximo
+```
 
-- **Comunicado**: Classe base serializável para todos os comunicados
-- **Pedido**: Contém um vetor de números e o número a ser procurado
-- **Resposta**: Contém o resultado da contagem
-- **ComunicadoEncerramento**: Sinal para encerrar a comunicação
+## Versão Principal (Cliente/Servidor)
 
-### Programas Principais
+### Execução em Rede Local
 
-- **Receptor (R)**: Servidor que recebe pedidos e realiza contagens
-- **Distribuidor (D)**: Cliente que coordena a contagem distribuída
-- **ContadorSequencial**: Implementação sequencial para comparação
-- **TesteSistema**: Testes com vetores pequenos
-- **SistemaContagem**: Programa principal com menu integrado
+1. **Descobrir IPs das máquinas:**
 
-## Como Executar
+   ```bash
+   # Windows
+   ipconfig
 
-### 1. Compilação
+   # Linux/macOS
+   ifconfig
+   ```
+
+2. **Configurar IPs no Distribuidor:**
+   Editar `Cliente/Distribuidor.java`:
+
+   ```java
+   private static final String[] IPS = {
+       "192.168.1.100",  // IP da máquina 1
+       "192.168.1.101",  // IP da máquina 2
+       "192.168.1.102",  // IP da máquina 3
+       "192.168.1.103"   // IP da máquina 4
+   };
+   ```
+
+3. **Executar:**
+
+   ```bash
+   # Em cada máquina servidor
+   cd Servidor
+   javac *.java
+   java Receptor
+
+   # Na máquina cliente
+   cd Cliente
+   javac *.java
+   java Distribuidor
+   ```
+
+## Versão de Testes Locais
+
+### Teste Rápido (Recomendado)
 
 ```bash
-# Compilar todas as classes
+cd Testes
 javac *.java
+java ClienteServidorLocal
 ```
 
-### 2. Execução
-
-#### Opção 1: Usar o programa principal integrado
+### Teste Completo com Interface
 
 ```bash
-java SistemaContagem
+cd Testes
+javac *.java
+java ReceptorLocal &    # Inicia 4 receptores em portas 12345-12348
+java DistribuidorLocal  # Executa distribuidor
 ```
 
-#### Opção 2: Executar componentes individuais
-
-**Para testar localmente (múltiplas instâncias do Receptor):**
+### Estimar Tamanho Máximo do Vetor
 
 ```bash
-# Terminal 1 - Receptor na porta 12345
-java Receptor 12345
-
-# Terminal 2 - Receptor na porta 12346 (modificar IPs no Distribuidor)
-java Receptor 12346
-
-# Terminal 3 - Distribuidor
-java Distribuidor
+cd Testes
+javac MaiorVetorAproximado.java
+java -Xmx4G MaiorVetorAproximado
 ```
 
-**Para contagem sequencial:**
+## Funcionalidades Implementadas
 
-```bash
-java ContadorSequencial
-```
+### ✅ Requisitos Obrigatórios
 
-**Para testes:**
+- Classes de comunicação serializáveis
+- Programa R (Receptor) com ServerSocket e conexões persistentes
+- Programa D (Distribuidor) com threads e Thread.join()
+- Comunicação TCP/IP com serialização
+- Encerramento com ComunicadoEncerramento
 
-```bash
-java TesteSistema
-```
+### ✅ Boas Práticas
 
-### 3. Configuração para Rede Local
+- Tratamento de exceções adequado
+- Interface do usuário (tamanho do vetor, exibição, número a procurar)
+- Logs informativos
+- Testes com vetores pequenos
+- Comparação de performance (sequencial vs distribuído)
+- Estimativa de tamanho máximo do vetor
 
-1. Descubra os IPs das máquinas:
+### ✅ Funcionalidades Extras
 
-   - Windows: `ipconfig`
-   - Linux/macOS: `ifconfig`
+- Versão de testes locais com 4 portas
+- Teste automático completo
+- Scripts de execução
+- Documentação completa
 
-2. Edite o arquivo `Distribuidor.java` e modifique o array `IPS_SERVIDORES`:
+## Exemplos de Logs
 
-```java
-private static final String[] IPS_SERVIDORES = {
-    "192.168.1.100",  // IP da máquina 1
-    "192.168.1.101",  // IP da máquina 2
-    "192.168.1.102",  // IP da máquina 3
-    "192.168.1.103"   // IP da máquina 4
-};
-```
-
-3. Execute o Receptor em cada máquina:
-
-```bash
-java Receptor
-```
-
-4. Execute o Distribuidor em uma das máquinas:
-
-```bash
-java Distribuidor
-```
-
-## Funcionalidades
-
-### Interface do Usuário
-
-- Escolha do tamanho do vetor
-- Opção de exibir o vetor na tela
-- Escolha do número a procurar
-- Teste com número inexistente (111)
-- Possibilidade de múltiplas rodadas
-
-### Logs Informativos
-
-- Mensagens de conexão e desconexão
-- Status das threads
-- Resultados das contagens
-- Tempos de execução
-
-### Tratamento de Exceções
-
-- Captura de erros de conexão
-- Tratamento de entradas inválidas
-- Recuperação de falhas de comunicação
-
-## Testes Sugeridos
-
-1. **Teste com vetor pequeno**: Use o `TesteSistema` para verificar funcionamento
-2. **Teste local**: Execute múltiplas instâncias do Receptor em portas diferentes
-3. **Teste em rede**: Use máquinas diferentes na mesma rede local
-4. **Comparação de performance**: Compare tempos entre sequencial e distribuído
-
-## Exemplo de Logs
+### Servidor (Receptor)
 
 ```
 [R] Iniciando receptor na porta 12345
-[R] Servidor ativo na porta 12345
 [R] Aguardando conexão...
-[R] Conexão estabelecida com 192.168.1.100
-[R] Pedido recebido do cliente 192.168.1.100
-[R] Pedido: procurar 50 em vetor de 2500 elementos
-[R] Resposta enviada: 12 ocorrências
-
-[D] Conectando ao servidor 192.168.1.100...
-[D] Conexão estabelecida com 192.168.1.100
-[D] Pedido enviado para 192.168.1.100
-[D] Resposta recebida de 192.168.1.100: 12 ocorrências
+[R] Conexão de 192.168.1.100
+[R] Pedido recebido. Contagem=1250
+[R] Comunicado de encerramento recebido. Fechando conexão.
 ```
 
-## Requisitos
+### Cliente (Distribuidor)
 
-- Java 8 ou superior
-- Múltiplas máquinas para teste em rede (opcional)
-- Porta 12345 disponível (ou configurável)
+```
+=== DISTRIBUIDOR ===
+Tamanho do vetor (ex.: 1000000): 1000000
+Deseja exibir o vetor? (s/n): n
+[D] Número a contar (posição 456789): 42
+[D] Contagem total: 5023
+```
 
-## Observações
+### Testes Locais
 
-- O sistema usa conexões persistentes TCP/IP
-- Cada servidor mantém sua conexão aberta até receber ComunicadoEncerramento
-- O número de threads é limitado pelo número de processadores disponíveis
-- Para teste local, modifique os IPs no Distribuidor para "localhost" e use portas diferentes
+```
+=== TESTE AUTOMÁTICO LOCAL ===
+[TESTE] Tamanho escolhido (metade): 500,000
+[TESTE] Número escolhido do vetor: 15 (posição 123456)
+[TESTE] Total contado: 2500
+[TESTE] Sequencial: 2500 em 2 ms
+[TESTE] Verificação: ✓ CORRETO
+```
+
+## Troubleshooting
+
+### Problemas Comuns
+
+1. **Erro de Compilação**: Verificar se todas as classes estão no classpath
+2. **Erro de Conexão**: Verificar se os servidores estão rodando e portas disponíveis
+3. **Erro de Serialização**: Verificar se as classes têm serialVersionUID idêntico
+
+### Para Teste Local
+
+- Use a pasta `Testes/` com `ReceptorLocal` e `DistribuidorLocal`
+- Execute `ClienteServidorLocal` para teste automático completo
+
+### Para Rede Local
+
+- Configure os IPs corretamente no `Distribuidor.java`
+- Execute `Receptor` em cada máquina servidor
+- Execute `Distribuidor` na máquina cliente
+
+## Performance
+
+O sistema distribuído pode ser mais lento que o sequencial devido ao overhead de rede. Em ambiente real com múltiplos servidores físicos, a performance melhora significativamente.
+
+Para demonstração, use a versão de testes locais que mostra claramente o funcionamento do sistema distribuído.

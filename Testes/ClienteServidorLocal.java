@@ -88,8 +88,8 @@ public class ClienteServidorLocal {
 			try (Socket s=new Socket(ip,porta);
 				 ObjectOutputStream out=new ObjectOutputStream(s.getOutputStream());
 				 ObjectInputStream in=new ObjectInputStream(s.getInputStream())){
-				int[] nums=new int[fatia.length]; for(int i=0;i<fatia.length;i++) nums[i]=fatia[i];
-				out.writeObject(new Pedido(nums, procurado)); out.flush();
+				// Enviar diretamente byte[] (sem conversão)
+				out.writeObject(new Pedido(fatia, procurado)); out.flush();
 				Object o=in.readObject();
 				if (o instanceof Resposta) total=((Resposta)o).getContagem();
 			} catch(Exception e){ System.err.println("[TESTE] Falha: "+e.getMessage());}

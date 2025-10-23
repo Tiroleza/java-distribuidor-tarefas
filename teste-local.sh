@@ -33,7 +33,8 @@ echo "1. Teste automático completo (ReceptorLocal + DistribuidorLocal)"
 echo "2. Teste super rápido (ClienteServidorLocal)"
 echo "3. Executar apenas ReceptorLocal (4 portas)"
 echo "4. Executar apenas DistribuidorLocal"
-echo "5. Estimar tamanho máximo do vetor"
+echo "5. Executar DistribuidorLocalOtimizado (sem OutOfMemoryError)"
+echo "6. Estimar tamanho máximo do vetor"
 echo ""
 read -p "Opção: " opcao
 
@@ -65,6 +66,12 @@ case $opcao in
         java DistribuidorLocal
         ;;
     5)
+        echo ""
+        echo "Executando DistribuidorLocalOtimizado..."
+        echo "IMPORTANTE: Certifique-se de que ReceptorLocal está rodando!"
+        java DistribuidorLocalOtimizado
+        ;;
+    6)
         echo ""
         echo "Estimando tamanho máximo do vetor..."
         echo "Execute com: java -Xmx4G MaiorVetorAproximado"

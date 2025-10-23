@@ -2,17 +2,18 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 
-public class DistribuidorLocal {
+public class DistribuidorLocalOtimizado {
 	public static final int[] PORTAS = {12345, 12346, 12347, 12348};
+	public static final int CHUNK_SIZE = 1_000_000; // Processar em chunks de 1M
 	
 	public static void main(String[] args) {
-		try (Scanner sc = new Scanner(System.in)) {
-			System.out.println("=== DISTRIBUIDOR LOCAL (TESTES) ===");
-			System.out.println("Processadores disponíveis: " + Runtime.getRuntime().availableProcessors());
+		Scanner sc = new Scanner(System.in);
+		System.out.println("=== DISTRIBUIDOR LOCAL OTIMIZADO ===");
+		System.out.println("Processadores disponíveis: " + Runtime.getRuntime().availableProcessors());
 		
-		// Usar tamanho menor para evitar OutOfMemoryError
+		// Usar tamanho controlado
 		int tamanhoEstimado = estimarTamanhoMaximo();
-		int tamanho = Math.min(10_000_000, Math.max(100000, tamanhoEstimado / 4)); // máximo 10M, mínimo 100k
+		int tamanho = Math.min(5_000_000, Math.max(100000, tamanhoEstimado / 8)); // máximo 5M
 		
 		System.out.println("Tamanho estimado máximo: " + String.format("%,d", tamanhoEstimado));
 		System.out.println("Tamanho do vetor (otimizado): " + String.format("%,d", tamanho));
@@ -30,43 +31,24 @@ public class DistribuidorLocal {
 		int procurado = vetor[pos];
 		System.out.println("[D-LOCAL] Número a contar (posição " + pos + "): " + procurado);
 		
-		// Dividir em partes para as 4 portas
-		int partes = PORTAS.length;
-		int tamanhoParte = (int)Math.ceil(vetor.length / (double)partes);
+		// Processar em chunks para evitar OutOfMemoryError
+		int totalContagem = 0;
+		int chunksProcessados = 0;
 		
-		List<Thread> threads = new ArrayList<>();
-		List<ContadorLocal> contadores = new ArrayList<>();
-		
-		for (int i = 0; i < partes; i++) {
-			int inicio = i * tamanhoParte;
-			int fim = Math.min(vetor.length, inicio + tamanhoParte);
-			if (inicio >= fim) break;
+		for (int inicio = 0; inicio < vetor.length; inicio += CHUNK_SIZE) {
+			int fim = Math.min(vetor.length, inicio + CHUNK_SIZE);
+			byte[] chunk = Arrays.copyOfRange(vetor, inicio, fim);
 			
-			byte[] fatia = Arrays.copyOfRange(vetor, inicio, fim);
-			ContadorLocal c = new ContadorLocal("localhost", PORTAS[i], fatia, procurado);
-			contadores.add(c);
-			Thread t = new Thread(c);
-			t.start();
-			threads.add(t);
-			
-			System.out.println("[D-LOCAL] Thread " + (i+1) + " para porta " + PORTAS[i] + 
+			System.out.println("[D-LOCAL] Processando chunk " + (++chunksProcessados) + 
 							 " (elementos " + String.format("%,d", inicio) + " a " + String.format("%,d", fim-1) + ")");
+			
+			int contagemChunk = processarChunk(chunk, procurado);
+			totalContagem += contagemChunk;
+			
+			System.out.println("[D-LOCAL] Chunk " + chunksProcessados + " contou: " + contagemChunk);
 		}
 		
-		// Aguardar todas as threads
-		for (Thread t : threads) {
-			try { t.join(); } catch (InterruptedException e) {}
-		}
-		
-		int total = 0;
-		for (ContadorLocal c : contadores) {
-			total += c.getContagem();
-		}
-		
-		System.out.println("[D-LOCAL] Contagem total: " + String.format("%,d", total));
-		
-		// Encerrar conexões
-		encerrarReceptores();
+		System.out.println("[D-LOCAL] Contagem total: " + String.format("%,d", totalContagem));
 		
 		// Comparar com contagem sequencial
 		System.out.println("\n=== COMPARAÇÃO COM CONTAGEM SEQUENCIAL ===");
@@ -76,8 +58,42 @@ public class DistribuidorLocal {
 		long tempoSeq = fimSeq - inicioSeq;
 		
 		System.out.println("Contagem sequencial: " + String.format("%,d", contagemSeq) + " ocorrências em " + tempoSeq + " ms");
-		System.out.println("Verificação: " + (total == contagemSeq ? "✓ CORRETO" : "✗ ERRO"));
-    		}
+		System.out.println("Verificação: " + (totalContagem == contagemSeq ? "✓ CORRETO" : "✗ ERRO"));
+		
+		sc.close();
+	}
+	
+	private static int processarChunk(byte[] chunk, int procurado) {
+		int partes = PORTAS.length;
+		int tamanhoParte = (int)Math.ceil(chunk.length / (double)partes);
+		
+		List<Thread> threads = new ArrayList<>();
+		List<ContadorChunk> contadores = new ArrayList<>();
+		
+		for (int i = 0; i < partes; i++) {
+			int inicio = i * tamanhoParte;
+			int fim = Math.min(chunk.length, inicio + tamanhoParte);
+			if (inicio >= fim) break;
+			
+			byte[] fatia = Arrays.copyOfRange(chunk, inicio, fim);
+			ContadorChunk c = new ContadorChunk("localhost", PORTAS[i], fatia, procurado);
+			contadores.add(c);
+			Thread t = new Thread(c);
+			t.start();
+			threads.add(t);
+		}
+		
+		// Aguardar todas as threads
+		for (Thread t : threads) {
+			try { t.join(); } catch (InterruptedException e) {}
+		}
+		
+		int total = 0;
+		for (ContadorChunk c : contadores) {
+			total += c.getContagem();
+		}
+		
+		return total;
 	}
 	
 	private static int estimarTamanhoMaximo() {
@@ -130,29 +146,16 @@ public class DistribuidorLocal {
 		}
 		return contagem;
 	}
-	
-	private static void encerrarReceptores() {
-		System.out.println("[D-LOCAL] Encerrando receptores...");
-		for (int porta : PORTAS) {
-			try (Socket s = new Socket("localhost", porta);
-				 ObjectOutputStream out = new ObjectOutputStream(s.getOutputStream())) {
-				out.writeObject(new ComunicadoEncerramento());
-				out.flush();
-			} catch (Exception e) {
-				System.err.println("[D-LOCAL] Falha ao encerrar receptor porta " + porta + ": " + e.getMessage());
-			}
-		}
-	}
 }
 
-class ContadorLocal implements Runnable {
+class ContadorChunk implements Runnable {
 	private final String ip;
 	private final int porta;
 	private final byte[] fatia;
 	private final int procurado;
 	private int contagem = 0;
 	
-	ContadorLocal(String ip, int porta, byte[] fatia, int procurado) {
+	ContadorChunk(String ip, int porta, byte[] fatia, int procurado) {
 		this.ip = ip;
 		this.porta = porta;
 		this.fatia = fatia;
@@ -167,14 +170,12 @@ class ContadorLocal implements Runnable {
 			 ObjectOutputStream out = new ObjectOutputStream(s.getOutputStream());
 			 ObjectInputStream  in  = new ObjectInputStream(s.getInputStream())) {
 			
-			// Enviar diretamente byte[] (sem conversão)
 			out.writeObject(new Pedido(this.fatia, this.procurado));
 			out.flush();
 			
 			Object obj = in.readObject();
 			if (obj instanceof Resposta resposta) {
 				this.contagem = resposta.getContagem();
-				System.out.println("[D-LOCAL] Resposta da porta " + porta + ": " + contagem + " ocorrências");
 			}
 		} catch (Exception e) {
 			System.err.println("[D-LOCAL] Falha ao contar na porta " + porta + ": " + e.getMessage());

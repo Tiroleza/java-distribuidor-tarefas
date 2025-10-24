@@ -1,11 +1,12 @@
 import java.io.*;
 import java.net.*;
 import java.util.*;
+import java.util.Arrays;
 
 public class D
 {
     // IPs dos servidores (hard-coded conforme enunciado)
-    private static final String[] IPS_SERVIDORES = {"localhost", "localhost", "localhost"};
+    private static final String[] IPS_SERVIDORES = {"localhost", "localhost", "192.168.15.3"};
     private static final int[] PORTAS_SERVIDORES = {12345, 12346, 12347};
     
     // Cores para logs
@@ -20,10 +21,8 @@ public class D
     {
         System.out.println(CIANO + "[D] Iniciando distribuidor..." + RESET);
         
-        // Conectar aos servidores
-        List<Socket> conexoes = new ArrayList<>();
-        List<ObjectOutputStream> transmissores = new ArrayList<>();
-        List<ObjectInputStream> receptores = new ArrayList<>();
+        // Conectar aos servidores usando Parceiro
+        List<Parceiro> servidores = new ArrayList<>();
         
         System.out.println(AZUL + "[D] Conectando aos servidores..." + RESET);
         for (int i = 0; i < IPS_SERVIDORES.length; i++)
@@ -34,10 +33,9 @@ public class D
                 Socket conexao = new Socket(IPS_SERVIDORES[i], PORTAS_SERVIDORES[i]);
                 ObjectOutputStream transmissor = new ObjectOutputStream(conexao.getOutputStream());
                 ObjectInputStream receptor = new ObjectInputStream(conexao.getInputStream());
+                Parceiro servidor = new Parceiro(conexao, receptor, transmissor);
                 
-                conexoes.add(conexao);
-                transmissores.add(transmissor);
-                receptores.add(receptor);
+                servidores.add(servidor);
                 
                 System.out.println(VERDE + "[D] ✓ Conectado ao servidor " + IPS_SERVIDORES[i] + ":" + PORTAS_SERVIDORES[i] + RESET);
             }
@@ -47,19 +45,19 @@ public class D
             }
         }
         
-        if (conexoes.isEmpty())
+        if (servidores.isEmpty())
         {
             System.err.println(VERMELHO + "[D] Nenhum servidor disponível!" + RESET);
             return;
         }
         
-        System.out.println(VERDE + "[D] ✓ Conectado a " + conexoes.size() + " servidores. Iniciando processamento automático..." + RESET);
+        System.out.println(VERDE + "[D] ✓ Conectado a " + servidores.size() + " servidores. Iniciando processamento automático..." + RESET);
         
         // Iniciar processamento automaticamente
-        processarNovoVetor(conexoes, transmissores, receptores);
+        processarNovoVetor(servidores);
         
         // Encerrar após processamento
-        encerrarConexoes(conexoes, transmissores, receptores);
+        encerrarConexoes(servidores);
         System.out.println(CIANO + "[D] Programa encerrado!" + RESET);
     }
     
@@ -107,7 +105,7 @@ public class D
         return tamanhoLimitado;
     }
     
-    private static void processarNovoVetor(List<Socket> conexoes, List<ObjectOutputStream> transmissores, List<ObjectInputStream> receptores)
+    private static void processarNovoVetor(List<Parceiro> servidores)
     {
         try
         {
@@ -140,69 +138,28 @@ public class D
             
             System.out.println(CIANO + "[D] Procurando pelo número: " + numeroProcurado + " (posição " + String.format("%,d", posicaoAleatoria) + ")" + RESET);
             
-            // Dividir vetor entre servidores usando paralelismo correto
-            int tamanhoParte = vetor.length / transmissores.size();
-            List<Integer> resultados = Collections.synchronizedList(new ArrayList<>());
-            List<Long> temposThreads = Collections.synchronizedList(new ArrayList<>());
+            // Dividir vetor entre servidores usando TrabalhadoraD
+            int tamanhoParte = vetor.length / servidores.size();
             
-            System.out.println(AZUL + "[D] Processando vetor em " + transmissores.size() + " partes paralelas..." + RESET);
+            System.out.println(AZUL + "[D] Processando vetor em " + servidores.size() + " partes paralelas..." + RESET);
             
             long inicioProcessamento = System.currentTimeMillis();
             
             // Fase 1: Iniciar Todas as Tarefas
             System.out.println(CIANO + "[D] FASE 1: Iniciando todas as threads..." + RESET);
-            Thread[] threads = new Thread[transmissores.size()];
+            TrabalhadoraD[] threads = new TrabalhadoraD[servidores.size()];
             
-            for (int i = 0; i < transmissores.size(); i++)
+            for (int i = 0; i < servidores.size(); i++)
             {
-                final int indice = i;
                 final int inicio = i * tamanhoParte;
-                final int fim = (i == transmissores.size() - 1) ? vetor.length : (i + 1) * tamanhoParte;
+                final int fim = (i == servidores.size() - 1) ? vetor.length : (i + 1) * tamanhoParte;
                 
-                threads[i] = new Thread(() -> {
-                    long inicioThread = System.currentTimeMillis();
-                    try
-                    {
-                        System.out.println(AMARELO + "[D] Thread " + indice + " iniciada (elementos " + String.format("%,d", inicio) + " a " + String.format("%,d", fim-1) + ")" + RESET);
-                        
-                        // Criar parte do vetor
-                        byte[] parteVetor = new byte[fim - inicio];
-                        System.arraycopy(vetor, inicio, parteVetor, 0, fim - inicio);
-                        
-                        System.out.println(AMARELO + "[D] Thread " + indice + " enviando pedido (parte: " + String.format("%,d", parteVetor.length) + " elementos)" + RESET);
-                        
-                        // Enviar pedido
-                        Pedido pedido = new Pedido(parteVetor, numeroProcurado);
-                        transmissores.get(indice).writeObject(pedido);
-                        transmissores.get(indice).flush();
-                        
-                        System.out.println(VERDE + "[D] ✓ Thread " + indice + " pedido enviado" + RESET);
-                        
-                        // Receber resposta
-                        Resposta resposta = (Resposta) receptores.get(indice).readObject();
-                        resultados.add(resposta.getContagem());
-                        
-                        long fimThread = System.currentTimeMillis();
-                        long tempoThread = fimThread - inicioThread;
-                        temposThreads.add(tempoThread);
-                        
-                        System.out.println(CIANO + "[D] ✓ Thread " + indice + " resposta recebida: " + resposta.getContagem() + " (tempo: " + tempoThread + "ms)" + RESET);
-                        
-                        // Liberar memória da parte processada
-                        parteVetor = null;
-                        System.gc();
-                    }
-                    catch (Exception e)
-                    {
-                        System.err.println(VERMELHO + "[D] ✗ Erro na Thread " + indice + ": " + e.getMessage() + RESET);
-                        resultados.add(0);
-                        temposThreads.add(0L);
-                    }
-                });
+                // Criar TrabalhadoraD sem cópia do vetor (apenas referências)
+                threads[i] = new TrabalhadoraD(vetor, inicio, fim, servidores.get(i), numeroProcurado);
                 
                 // Iniciar thread (Fase 1)
                 threads[i].start();
-                System.out.println(VERDE + "[D] ✓ Thread " + indice + " iniciada (start())" + RESET);
+                System.out.println(VERDE + "[D] ✓ Thread " + i + " iniciada (start())" + RESET);
             }
             
             // Fase 2: Sincronizar (Aguardar) Todas as Tarefas
@@ -225,11 +182,11 @@ public class D
             long fimProcessamento = System.currentTimeMillis();
             long tempoTotal = fimProcessamento - inicioProcessamento;
             
-            // Somar resultados
+            // Somar resultados das TrabalhadoraD
             int contagemTotal = 0;
-            for (Integer resultado : resultados)
+            for (int i = 0; i < threads.length; i++)
             {
-                contagemTotal += resultado;
+                contagemTotal += threads[i].getContagemParcial();
             }
             
             // Mostrar métricas de tempo
@@ -238,14 +195,13 @@ public class D
             System.out.println(AMARELO + "[D]   • Tempo total de processamento: " + tempoTotal + "ms" + RESET);
             System.out.println(AMARELO + "[D]   • Tempo de geração do vetor: " + (fimGeracao - inicioGeracao) + "ms" + RESET);
             
-            for (int i = 0; i < temposThreads.size(); i++)
+            for (int i = 0; i < threads.length; i++)
             {
-                System.out.println(AMARELO + "[D]   • Thread " + i + ": " + temposThreads.get(i) + "ms" + RESET);
+                System.out.println(AMARELO + "[D]   • Thread " + i + ": " + threads[i].getTempoThread() + "ms" + RESET);
             }
             
             // Desconectar após calcular
             System.out.println(AMARELO + "[D] Tarefa concluída, desconectando dos servidores..." + RESET);
-            encerrarConexoes(conexoes, transmissores, receptores);
         }
         catch (Exception e)
         {
@@ -255,37 +211,110 @@ public class D
     
     
     
-    private static void encerrarConexoes(List<Socket> conexoes, List<ObjectOutputStream> transmissores, List<ObjectInputStream> receptores)
+    private static void encerrarConexoes(List<Parceiro> servidores)
     {
-        System.out.println("[D] Encerrando conexões...");
+        System.out.println(AMARELO + "[D] Encerrando conexões..." + RESET);
         
         // Enviar comunicado de encerramento para todos os servidores
-        for (ObjectOutputStream transmissor : transmissores)
+        for (int i = 0; i < servidores.size(); i++)
         {
             try
             {
-                transmissor.writeObject(new ComunicadoEncerramento());
-                transmissor.flush();
+                servidores.get(i).receba(new ComunicadoEncerramento());
+                servidores.get(i).adeus();
+                System.out.println(VERDE + "[D] ✓ Servidor " + i + " encerrado." + RESET);
             }
             catch (Exception e)
             {
-                System.err.println("[D] Erro ao enviar comunicado de encerramento: " + e.getMessage());
+                System.err.println(VERMELHO + "[D] ✗ Erro ao encerrar conexão com servidor " + i + ": " + e.getMessage() + RESET);
             }
         }
         
-        // Fechar todas as conexões
-        for (Socket conexao : conexoes)
+        System.out.println(CIANO + "[D] Conexões encerradas!" + RESET);
+    }
+    
+    // Classe interna TrabalhadoraD
+    private static class TrabalhadoraD extends Thread
+    {
+        private byte[] grandeVetor;
+        private int inicio;
+        private int fim;
+        private Parceiro servidor;
+        private int procurado;
+        private int contagemParcial;
+        private long tempoThread;
+        
+        public TrabalhadoraD(byte[] grandeVetor, int inicio, int fim, Parceiro servidor, int procurado)
         {
+            this.grandeVetor = grandeVetor;
+            this.inicio = inicio;
+            this.fim = fim;
+            this.servidor = servidor;
+            this.procurado = procurado;
+            this.contagemParcial = 0;
+        }
+        
+        public int getContagemParcial()
+        {
+            return this.contagemParcial;
+        }
+        
+        public long getTempoThread()
+        {
+            return this.tempoThread;
+        }
+        
+        @Override
+        public void run()
+        {
+            long inicioThread = System.currentTimeMillis();
+            
             try
             {
-                conexao.close();
+                // Criar segmento do vetor dentro do run() para serializar alocação
+                byte[] minhaParte = Arrays.copyOfRange(this.grandeVetor, this.inicio, this.fim);
+                
+                System.out.println(AMARELO + "[TrabalhadoraD] Thread " + Thread.currentThread().getName() + 
+                                 " processando " + String.format("%,d", minhaParte.length) + " elementos" + RESET);
+                
+                // Usar Parceiro exatamente como Cliente.java para transação simples
+                // Enviar pedido
+                this.servidor.receba(new Pedido(minhaParte, this.procurado));
+                
+                // Aguardar resposta (bloqueando)
+                Comunicado c = this.servidor.envie();
+                
+                // Verificar se é Resposta
+                if (c instanceof Resposta)
+                {
+                    Resposta resposta = (Resposta) c;
+                    this.contagemParcial = resposta.getContagem();
+                    System.out.println(VERDE + "[TrabalhadoraD] Thread " + Thread.currentThread().getName() + 
+                                     " recebeu resposta: " + this.contagemParcial + RESET);
+                }
+                else
+                {
+                    System.err.println(VERMELHO + "[TrabalhadoraD] Thread " + Thread.currentThread().getName() + 
+                                     " recebeu comunicado inesperado: " + c.getClass().getSimpleName() + RESET);
+                    this.contagemParcial = 0;
+                }
+                
+                // Liberar memória do segmento
+                minhaParte = null;
+                System.gc();
             }
             catch (Exception e)
             {
-                System.err.println("[D] Erro ao fechar conexão: " + e.getMessage());
+                System.err.println(VERMELHO + "[TrabalhadoraD] Erro na thread " + Thread.currentThread().getName() + 
+                                 ": " + e.getMessage() + RESET);
+                this.contagemParcial = 0;
             }
+            
+            long fimThread = System.currentTimeMillis();
+            this.tempoThread = fimThread - inicioThread;
+            
+            System.out.println(CIANO + "[TrabalhadoraD] Thread " + Thread.currentThread().getName() + 
+                             " finalizada em " + this.tempoThread + "ms" + RESET);
         }
-        
-        System.out.println("[D] Conexões encerradas!");
     }
 }

@@ -65,10 +65,11 @@ java -Xmx3G D
 
 - **Vetor**: Bytes entre -100 e 100, tamanho calculado automaticamente
 - **Paralelismo**: Usa `Runtime.getRuntime().availableProcessors()` threads
-- **Comunicação**: TCP/IP com serialização de objetos
+- **Comunicação**: TCP/IP com serialização de objetos usando `Parceiro`
 - **Conexões**: Desconecta após cada tarefa
 - **Métricas**: Tempo de geração, processamento e cada thread
 - **Memória**: Estimativa automática baseada em 3GB disponível
+- **Arquitetura**: Classe interna `TrabalhadoraD` para evitar OutOfMemoryError
 
 ## Conexão TCP/IP Real (Não Local)
 
@@ -91,6 +92,12 @@ Altere as constantes no início do arquivo:
 ```java
 private static final String[] IPS_SERVIDORES = {"192.168.1.100", "192.168.1.101", "192.168.1.102"};
 private static final int[] PORTAS_SERVIDORES = {12345, 12346, 12347};
+```
+
+**Exemplo atual no código:**
+
+```java
+private static final String[] IPS_SERVIDORES = {"localhost", "localhost", "192.168.15.3"};
 ```
 
 ### 3. Executar em Máquinas Diferentes

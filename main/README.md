@@ -50,27 +50,30 @@ java -Xmx3G D
 - **NUNCA** execute `java D.java` - sempre use `javac *.java` seguido de `java D`
 - Isso evita LinkageError causado por conflitos de ClassLoader
 
-### 4. Opções do Cliente
+### 4. Opções do Menu Interativo
 
-- **N**: Novo vetor (gera vetor aleatório entre -100 e 100)
-- **M**: Mostrar vetor
-- **S**: Sair
+- **[G]erar Vetor**: Tamanho manual (usuário define)
+- **[A]uto-Tamanho**: Gera vetor com tamanho máximo calculado
+- **[P]equeno**: Gera vetor de teste (20 elementos)
+- **[E]xibir Vetor**: Mostra vetor atual (se ≤ 100 elementos)
+- **[C]ontar**: Conta número aleatório do vetor atual
+- **[Z]ero**: Conta número inexistente '111' (deve retornar 0)
+- **[T]erminar**: Encerra o programa
 
 ## Funcionamento
 
-1. Cliente calcula tamanho máximo do vetor usando estimativa de memória
-2. Gera vetor de bytes aleatórios entre -100 e 100
-3. Divide vetor entre servidores
-4. Cada servidor processa sua parte usando paralelismo interno
-5. Cliente agrega resultados e exibe métricas de tempo
-6. Sistema desconecta após cada tarefa (não mantém conexões persistentes)
+1. **Menu Interativo**: Cliente apresenta menu com opções de geração e contagem
+2. **Geração de Vetor**: Usuário pode gerar vetor manual, automático ou pequeno
+3. **Contagem Distribuída**: Divide vetor entre servidores para processamento paralelo
+4. **Métricas**: Exibe tempo de processamento e resultados de cada thread
+5. **Conexões Persistentes**: Servidores mantêm conexões abertas para múltiplas operações
+6. **Testes Obrigatórios**: Suporte para vetores pequenos e contagem de números inexistentes
 
 ## Especificações Técnicas
 
 - **Vetor**: Bytes entre -100 e 100, tamanho calculado automaticamente
 - **Paralelismo**: Usa `Runtime.getRuntime().availableProcessors()` threads
 - **Comunicação**: TCP/IP com serialização de objetos usando `Parceiro`
-- **Conexões**: Desconecta após cada tarefa
 - **Métricas**: Tempo de geração, processamento e cada thread
 - **Memória**: Estimativa automática baseada em 3GB disponível
 - **Arquitetura**: Classe interna `TrabalhadoraD` com Semaphore para evitar OutOfMemoryError

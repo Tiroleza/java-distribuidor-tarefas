@@ -1,13 +1,12 @@
 import java.io.*;
 import java.net.*;
 import java.util.*;
-import java.util.Arrays;
 import java.util.concurrent.Semaphore;
 
 public class D
 {
     // IPs dos servidores (hard-coded conforme enunciado)
-    private static final String[] IPS_SERVIDORES = {"localhost", "172.16.130.50", "192.168.15.3"};
+    private static final String[] IPS_SERVIDORES = {"localhost", "localhost", "localhost"};
     private static final int[] PORTAS_SERVIDORES = {12345, 12346, 12347};
     
     // Cores para logs
@@ -20,6 +19,10 @@ public class D
     
     // Semáforo para garantir que apenas UMA thread crie a cópia por vez
     private static Semaphore semaforoCopia = new Semaphore(1, true);
+    
+    // Variáveis de estado para manter o vetor entre operações do menu
+    private static byte[] vetorAtual = null; // Guarda o vetor gerado
+    private static int tamanhoAtual = 0;   // Guarda o tamanho
     
     public static void main(String[] args)
     {
@@ -55,12 +58,105 @@ public class D
             return;
         }
         
-        System.out.println(VERDE + "[D] ✓ Conectado a " + servidores.size() + " servidores. Iniciando processamento automático..." + RESET);
+        System.out.println(VERDE + "[D] ✓ Conectado a " + servidores.size() + " servidores. Menu interativo ativo!" + RESET);
         
-        // Iniciar processamento automaticamente
-        processarNovoVetor(servidores);
+        // Menu interativo baseado no Cliente.java
+        char opcao = ' ';
+        do
+        {
+            // Exibir menu de opções
+            System.out.println(CIANO + "\n--- MENU DO DISTRIBUIDOR ---" + RESET);
+            System.out.println("[G]erar Vetor (Tamanho Manual)");
+            System.out.println("[A]uto-Tamanho (Gerar Vetor Máximo)");
+            System.out.println("[P]equeno (Gerar Vetor de Teste, 20 elementos)");
+            System.out.println("[E]xibir Vetor Atual");
+            System.out.println("[C]ontar (Número Aleatório do Vetor)");
+            System.out.println("[Z]ero (Contar Número Inexistente '111')");
+            System.out.println("[T]erminar");
+            System.out.print("> ");
+            
+            // Capturar entrada usando Teclado.java
+            try
+            {
+                opcao = Character.toUpperCase(Teclado.getUmString().charAt(0));
+            }
+            catch (Exception e)
+            {
+                System.err.println(VERMELHO + "Opção inválida!" + RESET);
+                continue;
+            }
+            
+            // Processar opção
+            switch (opcao)
+            {
+                case 'G': // Gerar Manual
+                    try
+                    {
+                        System.out.print(CIANO + "Digite o tamanho do vetor: " + RESET);
+                        int tam = Teclado.getUmInt();
+                        gerarVetor(tam);
+                    }
+                    catch (Exception e)
+                    {
+                        System.err.println(VERMELHO + "Tamanho inválido." + RESET);
+                    }
+                    break;
+                    
+                case 'A': // Gerar Auto (Máximo)
+                    System.out.println(AZUL + "[D] Calculando tamanho máximo do vetor..." + RESET);
+                    int tamMax = calcularTamanhoMaximoVetor();
+                    gerarVetor(tamMax);
+                    break;
+                    
+                case 'P': // Gerar Pequeno
+                    System.out.println(AZUL + "[D] Gerando vetor pequeno (20 elementos)..." + RESET);
+                    gerarVetor(20);
+                    break;
+                    
+                case 'E': // Exibir Vetor
+                    if (vetorAtual != null && vetorAtual.length <= 100)
+                    {
+                        System.out.println(CIANO + "[D] Vetor atual: " + Arrays.toString(vetorAtual) + RESET);
+                    }
+                    else
+                    {
+                        System.err.println(AMARELO + "[D] Vetor é muito grande (>100) ou nulo para exibir." + RESET);
+                    }
+                    break;
+                    
+                case 'C': // Contar Aleatório
+                    if (vetorAtual == null)
+                    {
+                        System.err.println(VERMELHO + "Gere um vetor primeiro." + RESET);
+                        break;
+                    }
+                    Random random = new Random();
+                    int pos = random.nextInt(tamanhoAtual);
+                    int num = vetorAtual[pos];
+                    processarContagem(servidores, num);
+                    break;
+                    
+                case 'Z': // Contar Zero (Inexistente '111')
+                    if (vetorAtual == null)
+                    {
+                        System.err.println(VERMELHO + "Gere um vetor primeiro." + RESET);
+                        break;
+                    }
+                    processarContagem(servidores, 111);
+                    break;
+                    
+                case 'T': // Terminar
+                    System.out.println(CIANO + "[D] Encerrando..." + RESET);
+                    break;
+                    
+                default:
+                    System.err.println(VERMELHO + "Opção desconhecida!" + RESET);
+                    break;
+            }
+        }
+        while (opcao != 'T');
         
-        // Encerrar após processamento
+        // Encerrar após sair do menu
         encerrarConexoes(servidores);
         System.out.println(CIANO + "[D] Programa encerrado!" + RESET);
     }
@@ -109,16 +205,10 @@ public class D
         return tamanhoLimitado;
     }
     
-    private static void processarNovoVetor(List<Parceiro> servidores)
+    private static void gerarVetor(int tamanho)
     {
         try
         {
-            // Calcular tamanho máximo do vetor usando o código fornecido
-            System.out.println(AZUL + "[D] Calculando tamanho máximo do vetor..." + RESET);
-            int tamanho = calcularTamanhoMaximoVetor();
-            
-            System.out.println(VERDE + "[D] ✓ Tamanho do vetor definido: " + String.format("%,d", tamanho) + " elementos" + RESET);
-            
             // Calcular estimativa de memória
             long memoriaEstimada = tamanho * 1L; // 1 byte por elemento
             double memoriaMB = memoriaEstimada / (1024.0 * 1024.0);
@@ -127,23 +217,41 @@ public class D
             // Gerar vetor de bytes aleatórios entre -100 e 100
             long inicioGeracao = System.currentTimeMillis();
             System.out.println(AZUL + "[D] Gerando vetor de " + String.format("%,d", tamanho) + " elementos..." + RESET);
-            byte[] vetor = new byte[tamanho];
+            
+            vetorAtual = new byte[tamanho];
             Random random = new Random();
             for (int i = 0; i < tamanho; i++)
             {
-                vetor[i] = (byte)(random.nextInt(201) - 100); // -100 a 100
+                vetorAtual[i] = (byte)(random.nextInt(201) - 100); // -100 a 100
             }
+            tamanhoAtual = tamanho;
+            
             long fimGeracao = System.currentTimeMillis();
             System.out.println(VERDE + "[D] ✓ Vetor gerado em " + (fimGeracao - inicioGeracao) + "ms!" + RESET);
+        }
+        catch (Exception e)
+        {
+            System.err.println(VERMELHO + "[D] ✗ Erro ao gerar vetor: " + e.getMessage() + RESET);
+            vetorAtual = null;
+            tamanhoAtual = 0;
+        }
+    }
+    
+    private static void processarContagem(List<Parceiro> servidores, int numeroProcurado)
+    {
+        try
+        {
+            // Verificar se vetor foi gerado
+            if (vetorAtual == null)
+            {
+                System.err.println(VERMELHO + "Vetor ainda não foi gerado! Use [G], [A] ou [P] primeiro." + RESET);
+                return;
+            }
             
-            // Escolher aleatoriamente um número do vetor para contar
-            int posicaoAleatoria = random.nextInt(tamanho);
-            int numeroProcurado = vetor[posicaoAleatoria];
-            
-            System.out.println(CIANO + "[D] Procurando pelo número: " + numeroProcurado + " (posição " + String.format("%,d", posicaoAleatoria) + ")" + RESET);
+            System.out.println(CIANO + "[D] Procurando pelo número: " + numeroProcurado + RESET);
             
             // Dividir vetor entre servidores usando TrabalhadoraD
-            int tamanhoParte = vetor.length / servidores.size();
+            int tamanhoParte = vetorAtual.length / servidores.size();
             
             System.out.println(AZUL + "[D] Processando vetor em " + servidores.size() + " partes paralelas..." + RESET);
             
@@ -156,10 +264,10 @@ public class D
             for (int i = 0; i < servidores.size(); i++)
             {
                 final int inicio = i * tamanhoParte;
-                final int fim = (i == servidores.size() - 1) ? vetor.length : (i + 1) * tamanhoParte;
+                final int fim = (i == servidores.size() - 1) ? vetorAtual.length : (i + 1) * tamanhoParte;
                 
                 // Criar TrabalhadoraD sem cópia do vetor (apenas referências)
-                threads[i] = new TrabalhadoraD(vetor, inicio, fim, servidores.get(i), numeroProcurado, semaforoCopia);
+                threads[i] = new TrabalhadoraD(vetorAtual, inicio, fim, servidores.get(i), numeroProcurado, semaforoCopia);
                 
                 // Iniciar thread (Fase 1)
                 threads[i].start();
@@ -197,15 +305,14 @@ public class D
             System.out.println(VERDE + "[D] ✓ Contagem final: " + contagemTotal + RESET);
             System.out.println(CIANO + "[D] 📊 MÉTRICAS DE TEMPO:" + RESET);
             System.out.println(AMARELO + "[D]   • Tempo total de processamento: " + tempoTotal + "ms" + RESET);
-            System.out.println(AMARELO + "[D]   • Tempo de geração do vetor: " + (fimGeracao - inicioGeracao) + "ms" + RESET);
             
             for (int i = 0; i < threads.length; i++)
             {
                 System.out.println(AMARELO + "[D]   • Thread " + i + ": " + threads[i].getTempoThread() + "ms" + RESET);
             }
             
-            // Desconectar após calcular
-            System.out.println(AMARELO + "[D] Tarefa concluída, desconectando dos servidores..." + RESET);
+            // Tarefa concluída, voltando ao menu
+            System.out.println(VERDE + "[D] ✓ Tarefa concluída!" + RESET);
         }
         catch (Exception e)
         {

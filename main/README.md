@@ -44,13 +44,19 @@ java -Xmx1G R 12347
 java -Xmx3G D
 ```
 
+### 4. Executar Contagem Sequencial (Para Comparação)
+
+```bash
+java -Xmx3G ContagemSequencial
+```
+
 **⚠️ IMPORTANTE**:
 
 - Use os limites de memória (`-Xmx`) para usar 3GB de memória disponível
 - **NUNCA** execute `java D.java` - sempre use `javac *.java` seguido de `java D`
 - Isso evita LinkageError causado por conflitos de ClassLoader
 
-### 4. Opções do Menu Interativo
+### 5. Opções do Menu Interativo
 
 - **[G]erar Vetor**: Tamanho manual (usuário define)
 - **[A]uto-Tamanho**: Gera vetor com tamanho máximo calculado
@@ -79,6 +85,61 @@ java -Xmx3G D
 - **Arquitetura**: Classe interna `TrabalhadoraD` com Semaphore para evitar OutOfMemoryError
 - **Conexões**: Servidores mantêm conexões persistentes com loop `for(;;)`
 - **Sincronização**: Semaphore protege seção crítica de cópia de memória
+
+## Comparação de Performance
+
+Para comparar a performance entre distribuição e processamento sequencial:
+
+### 1. Teste com Sistema Distribuído
+
+```bash
+# Terminal 1: Servidores
+java -Xmx1G R 12345
+java -Xmx1G R 12346
+java -Xmx1G R 12347
+
+# Terminal 2: Cliente Distribuído
+java -Xmx3G D
+# Use opção [A] para gerar vetor máximo
+# Use opção [C] para contar número aleatório
+```
+
+### 2. Teste com Sistema Sequencial
+
+```bash
+# Terminal: Contagem Sequencial
+java -Xmx3G ContagemSequencial
+# Use opção [A] para gerar vetor máximo
+# Use opção [C] para contar número aleatório
+```
+
+### 3. Análise dos Resultados
+
+Compare os tempos de processamento:
+
+- **Distribuído**: Tempo total + tempo de cada thread
+- **Sequencial**: Tempo total em uma única thread
+
+O sistema distribuído deve ser mais rápido para vetores grandes devido ao paralelismo.
+
+### 4. Exemplo de Comparação
+
+```bash
+# Sistema Distribuído (3 servidores + cliente)
+[D] ✓ Contagem final: 1500000
+[D] 📊 MÉTRICAS DE TEMPO:
+[D]   • Tempo total de processamento: 2500ms
+[D]   • Thread 0: 800ms
+[D]   • Thread 1: 750ms
+[D]   • Thread 2: 900ms
+
+# Sistema Sequencial (1 thread)
+[SEQ] ✓ Contagem final: 1500000
+[SEQ] 📊 MÉTRICAS DE TEMPO (SEQUENCIAL):
+[SEQ]   • Tempo total de processamento: 4500ms
+```
+
+**Resultado**: Sistema distribuído foi ~1.8x mais rápido!
 
 ## Conexão TCP/IP Real (Não Local)
 

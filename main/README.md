@@ -44,7 +44,11 @@ java -Xmx1G R 12347
 java -Xmx3G D
 ```
 
-**⚠️ IMPORTANTE**: Use os limites de memória (`-Xmx`) para usar 3GB de memória disponível.
+**⚠️ IMPORTANTE**:
+
+- Use os limites de memória (`-Xmx`) para usar 3GB de memória disponível
+- **NUNCA** execute `java D.java` - sempre use `javac *.java` seguido de `java D`
+- Isso evita LinkageError causado por conflitos de ClassLoader
 
 ### 4. Opções do Cliente
 
@@ -69,7 +73,9 @@ java -Xmx3G D
 - **Conexões**: Desconecta após cada tarefa
 - **Métricas**: Tempo de geração, processamento e cada thread
 - **Memória**: Estimativa automática baseada em 3GB disponível
-- **Arquitetura**: Classe interna `TrabalhadoraD` para evitar OutOfMemoryError
+- **Arquitetura**: Classe interna `TrabalhadoraD` com Semaphore para evitar OutOfMemoryError
+- **Conexões**: Servidores mantêm conexões persistentes com loop `for(;;)`
+- **Sincronização**: Semaphore protege seção crítica de cópia de memória
 
 ## Conexão TCP/IP Real (Não Local)
 

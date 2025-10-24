@@ -2,11 +2,12 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 import java.util.Arrays;
+import java.util.concurrent.Semaphore;
 
 public class D
 {
     // IPs dos servidores (hard-coded conforme enunciado)
-    private static final String[] IPS_SERVIDORES = {"localhost", "localhost", "192.168.15.3"};
+    private static final String[] IPS_SERVIDORES = {"localhost", "172.16.130.50", "192.168.15.3"};
     private static final int[] PORTAS_SERVIDORES = {12345, 12346, 12347};
     
     // Cores para logs
@@ -16,6 +17,9 @@ public class D
     private static final String AMARELO = "\033[33m";
     private static final String VERMELHO = "\033[31m";
     private static final String CIANO = "\033[36m";
+    
+    // Semáforo para garantir que apenas UMA thread crie a cópia por vez
+    private static Semaphore semaforoCopia = new Semaphore(1, true);
     
     public static void main(String[] args)
     {
@@ -155,7 +159,7 @@ public class D
                 final int fim = (i == servidores.size() - 1) ? vetor.length : (i + 1) * tamanhoParte;
                 
                 // Criar TrabalhadoraD sem cópia do vetor (apenas referências)
-                threads[i] = new TrabalhadoraD(vetor, inicio, fim, servidores.get(i), numeroProcurado);
+                threads[i] = new TrabalhadoraD(vetor, inicio, fim, servidores.get(i), numeroProcurado, semaforoCopia);
                 
                 // Iniciar thread (Fase 1)
                 threads[i].start();
@@ -243,14 +247,16 @@ public class D
         private int procurado;
         private int contagemParcial;
         private long tempoThread;
+        private Semaphore semaforo;
         
-        public TrabalhadoraD(byte[] grandeVetor, int inicio, int fim, Parceiro servidor, int procurado)
+        public TrabalhadoraD(byte[] grandeVetor, int inicio, int fim, Parceiro servidor, int procurado, Semaphore semaforo)
         {
             this.grandeVetor = grandeVetor;
             this.inicio = inicio;
             this.fim = fim;
             this.servidor = servidor;
             this.procurado = procurado;
+            this.semaforo = semaforo;
             this.contagemParcial = 0;
         }
         
@@ -268,15 +274,23 @@ public class D
         public void run()
         {
             long inicioThread = System.currentTimeMillis();
+            byte[] minhaParte = null;
             
             try
             {
+                // --- INÍCIO DA SEÇÃO CRÍTICA (MEMÓRIA) ---
+                this.semaforo.acquire(); // 1. Pede permissão para copiar
+                
                 // Criar segmento do vetor dentro do run() para serializar alocação
-                byte[] minhaParte = Arrays.copyOfRange(this.grandeVetor, this.inicio, this.fim);
+                minhaParte = Arrays.copyOfRange(this.grandeVetor, this.inicio, this.fim);
+                
+                this.semaforo.release(); // 2. Libera para a próxima thread copiar
+                // --- FIM DA SEÇÃO CRÍTICA (MEMÓRIA) ---
                 
                 System.out.println(AMARELO + "[TrabalhadoraD] Thread " + Thread.currentThread().getName() + 
                                  " processando " + String.format("%,d", minhaParte.length) + " elementos" + RESET);
                 
+                // 3. A comunicação de rede (lenta) OCORRE EM PARALELO (fora do semáforo)
                 // Usar Parceiro exatamente como Cliente.java para transação simples
                 // Enviar pedido
                 this.servidor.receba(new Pedido(minhaParte, this.procurado));
@@ -308,6 +322,14 @@ public class D
                 System.err.println(VERMELHO + "[TrabalhadoraD] Erro na thread " + Thread.currentThread().getName() + 
                                  ": " + e.getMessage() + RESET);
                 this.contagemParcial = 0;
+            }
+            finally
+            {
+                // Garantir que o semáforo seja liberado mesmo em caso de erro
+                if (this.semaforo.availablePermits() == 0)
+                {
+                    this.semaforo.release();
+                }
             }
             
             long fimThread = System.currentTimeMillis();

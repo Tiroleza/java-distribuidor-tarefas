@@ -61,93 +61,110 @@ public class R
              ObjectOutputStream transmissor = new ObjectOutputStream(conexao.getOutputStream()))
         {
             System.out.println(VERDE + "[R] ✓ Streams criados para " + conexao.getInetAddress().getHostAddress() + RESET);
-            System.out.println(AZUL + "[R] Aguardando pedido..." + RESET);
             
-            // Aceitar apenas um pedido por conexão
-            Comunicado comunicado = (Comunicado) receptor.readObject();
-            
-            if (comunicado instanceof Pedido)
+            // OBRIGATÓRIO: Loop para manter a conexão persistente
+            for(;;) 
             {
-                Pedido pedido = (Pedido) comunicado;
-                System.out.println(AMARELO + "[R] Pedido recebido de " + conexao.getInetAddress().getHostAddress() + RESET);
-                
-                // Executar contagem em paralelo com métricas de tempo
-                long inicioProcessamento = System.currentTimeMillis();
-                int qtdProcessadores = Runtime.getRuntime().availableProcessors();
-                byte[] numeros = pedido.getNumeros();
-                int procurado = pedido.getProcurado();
-                
-                System.out.println(AZUL + "[R] Processando vetor de " + String.format("%,d", numeros.length) + " elementos com " + qtdProcessadores + " threads" + RESET);
-                
-                // Dividir vetor em partes
-                int tamanhoParte = numeros.length / qtdProcessadores;
-                int contagemTotal = 0;
-                
-                Thread[] threads = new Thread[qtdProcessadores];
-                int[] resultados = new int[qtdProcessadores];
-                long[] temposThreads = new long[qtdProcessadores];
-                
-                for (int i = 0; i < qtdProcessadores; i++)
+                try 
                 {
-                    final int indice = i;
-                    final int inicio = i * tamanhoParte;
-                    final int fim = (i == qtdProcessadores - 1) ? numeros.length : (i + 1) * tamanhoParte;
+                    System.out.println(AZUL + "[R] Aguardando comunicado..." + RESET);
                     
-                    threads[i] = new Thread(() -> {
-                        long inicioThread = System.currentTimeMillis();
-                        int contagemParcial = 0;
-                        for (int j = inicio; j < fim; j++)
+                    // Espera por qualquer comunicado
+                    Comunicado comunicado = (Comunicado) receptor.readObject();
+                    
+                    if (comunicado instanceof Pedido) 
+                    {
+                        Pedido pedido = (Pedido) comunicado;
+                        System.out.println(AMARELO + "[R] Pedido recebido de " + conexao.getInetAddress().getHostAddress() + RESET);
+                        
+                        // 1. Processa o pedido (faz a contagem, etc.)
+                        long inicioProcessamento = System.currentTimeMillis();
+                        int qtdProcessadores = Runtime.getRuntime().availableProcessors();
+                        byte[] numeros = pedido.getNumeros();
+                        int procurado = pedido.getProcurado();
+                        
+                        System.out.println(AZUL + "[R] Processando vetor de " + String.format("%,d", numeros.length) + " elementos com " + qtdProcessadores + " threads" + RESET);
+                        
+                        // Dividir vetor em partes
+                        int tamanhoParte = numeros.length / qtdProcessadores;
+                        int contagemTotal = 0;
+                        
+                        Thread[] threads = new Thread[qtdProcessadores];
+                        int[] resultados = new int[qtdProcessadores];
+                        long[] temposThreads = new long[qtdProcessadores];
+                        
+                        for (int i = 0; i < qtdProcessadores; i++)
                         {
-                            if (numeros[j] == procurado)
-                            {
-                                contagemParcial++;
-                            }
+                            final int indice = i;
+                            final int inicio = i * tamanhoParte;
+                            final int fim = (i == qtdProcessadores - 1) ? numeros.length : (i + 1) * tamanhoParte;
+                            
+                            threads[i] = new Thread(() -> {
+                                long inicioThread = System.currentTimeMillis();
+                                int contagemParcial = 0;
+                                for (int j = inicio; j < fim; j++)
+                                {
+                                    if (numeros[j] == procurado)
+                                    {
+                                        contagemParcial++;
+                                    }
+                                }
+                                long fimThread = System.currentTimeMillis();
+                                resultados[indice] = contagemParcial;
+                                temposThreads[indice] = fimThread - inicioThread;
+                                System.out.println(MAGENTA + "[R] Thread " + indice + " processou " + String.format("%,d", fim - inicio) + " elementos, encontrou " + contagemParcial + " ocorrências (tempo: " + temposThreads[indice] + "ms)" + RESET);
+                            });
+                            threads[i].start();
                         }
-                        long fimThread = System.currentTimeMillis();
-                        resultados[indice] = contagemParcial;
-                        temposThreads[indice] = fimThread - inicioThread;
-                        System.out.println(MAGENTA + "[R] Thread " + indice + " processou " + String.format("%,d", fim - inicio) + " elementos, encontrou " + contagemParcial + " ocorrências (tempo: " + temposThreads[indice] + "ms)" + RESET);
-                    });
-                    threads[i].start();
-                }
-                
-                // Aguardar todas as threads
-                System.out.println(CIANO + "[R] Aguardando processamento das threads..." + RESET);
-                for (Thread thread : threads)
+                        
+                        // Aguardar todas as threads
+                        System.out.println(CIANO + "[R] Aguardando processamento das threads..." + RESET);
+                        for (Thread thread : threads)
+                        {
+                            thread.join();
+                        }
+                        
+                        long fimProcessamento = System.currentTimeMillis();
+                        long tempoTotal = fimProcessamento - inicioProcessamento;
+                        
+                        // Somar resultados
+                        for (int resultado : resultados)
+                        {
+                            contagemTotal += resultado;
+                        }
+                        
+                        System.out.println(VERDE + "[R] ✓ Contagem final: " + contagemTotal + RESET);
+                        System.out.println(CIANO + "[R] 📊 MÉTRICAS DE TEMPO:" + RESET);
+                        System.out.println(AMARELO + "[R]   • Tempo total de processamento: " + tempoTotal + "ms" + RESET);
+                        
+                        for (int i = 0; i < temposThreads.length; i++)
+                        {
+                            System.out.println(AMARELO + "[R]   • Thread " + i + ": " + temposThreads[i] + "ms" + RESET);
+                        }
+                        
+                        // 2. Envia a Resposta
+                        Resposta resposta = new Resposta(contagemTotal);
+                        transmissor.writeObject(resposta);
+                        transmissor.flush();
+                        System.out.println(VERDE + "[R] ✓ Resposta enviada: " + contagemTotal + RESET);
+                        
+                        // 3. NÃO saia do loop! Volte para o 'for(;;)' e espere o próximo Pedido
+                        System.out.println(CIANO + "[R] Aguardando próximo pedido..." + RESET);
+                    }
+                    else if (comunicado instanceof ComunicadoEncerramento) 
+                    {
+                        // 1. Cliente pediu para sair
+                        System.out.println(AMARELO + "[R] Comunicado de encerramento recebido de " + conexao.getInetAddress().getHostAddress() + RESET);
+                        // 2. SÓ AGORA você pode sair do loop 'for(;;)'
+                        break;
+                    }
+                } 
+                catch (Exception e) 
                 {
-                    thread.join();
+                    // Se der erro (ex: cliente desconectou à força), saia do loop
+                    System.err.println(VERMELHO + "[R] ✗ Erro na conexão com " + conexao.getInetAddress().getHostAddress() + ": " + e.getMessage() + RESET);
+                    break; 
                 }
-                
-                long fimProcessamento = System.currentTimeMillis();
-                long tempoTotal = fimProcessamento - inicioProcessamento;
-                
-                // Somar resultados
-                for (int resultado : resultados)
-                {
-                    contagemTotal += resultado;
-                }
-                
-                System.out.println(VERDE + "[R] ✓ Contagem final: " + contagemTotal + RESET);
-                System.out.println(CIANO + "[R] 📊 MÉTRICAS DE TEMPO:" + RESET);
-                System.out.println(AMARELO + "[R]   • Tempo total de processamento: " + tempoTotal + "ms" + RESET);
-                
-                for (int i = 0; i < temposThreads.length; i++)
-                {
-                    System.out.println(AMARELO + "[R]   • Thread " + i + ": " + temposThreads[i] + "ms" + RESET);
-                }
-                
-                // Enviar resposta
-                Resposta resposta = new Resposta(contagemTotal);
-                transmissor.writeObject(resposta);
-                transmissor.flush();
-                System.out.println(VERDE + "[R] ✓ Resposta enviada: " + contagemTotal + RESET);
-                
-                // Desconectar após a tarefa
-                System.out.println(AMARELO + "[R] Tarefa concluída, desconectando..." + RESET);
-            }
-            else if (comunicado instanceof ComunicadoEncerramento)
-            {
-                System.out.println(AMARELO + "[R] Comunicado de encerramento recebido de " + conexao.getInetAddress().getHostAddress() + RESET);
             }
         }
         catch (Exception e)

@@ -16,7 +16,11 @@ fi
 
 echo "Compilação concluída com sucesso!"
 echo ""
-echo "⚠️  IMPORTANTE: Para usar 3GB de memória, execute com:"
+echo "⚠️  IMPORTANTE: Para evitar LinkageError, SEMPRE use:"
+echo "   1. Compilar: javac *.java"
+echo "   2. Executar: java -Xmx3G D (NÃO use java D.java)"
+echo ""
+echo "Para usar 3GB de memória, execute com:"
 echo "   java -Xmx3G D"
 echo "   java -Xmx1G R 12345"
 echo "   java -Xmx1G R 12346"

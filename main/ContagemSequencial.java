@@ -1,5 +1,10 @@
 import java.util.*;
 
+/**
+ * Programa de benchmark sequencial.
+ * Usado para comparar performance com o 'D.java' distribuído.
+ * Executa a contagem em uma única thread local sem comunicação de rede.
+ */
 public class ContagemSequencial
 {
     // Cores para logs

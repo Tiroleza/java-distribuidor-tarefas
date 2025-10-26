@@ -1,3 +1,7 @@
+/**
+ * Classe serializável que encapsula os dados de um pedido de contagem.
+ * Contém o vetor de números e o valor procurado.
+ */
 public class Pedido extends Comunicado
 {
     private byte[] numeros;

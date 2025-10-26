@@ -1,9 +1,12 @@
-import java.io.*;
-import java.net.*;
+import java.util.*;
 
+/**
+ * Classe principal do Receptor (Servidor).
+ * Inicia a thread 'AceitadoraDeConexaoR' e fornece uma interface de comandos para encerrar o servidor.
+ */
 public class R
 {
-    public static final int PORTA_PADRAO = 12345;
+    public static String PORTA_PADRAO = "12345";
     
     // Cores para logs
     private static final String RESET = "\033[0m";
@@ -12,177 +15,78 @@ public class R
     private static final String AMARELO = "\033[33m";
     private static final String VERMELHO = "\033[31m";
     private static final String CIANO = "\033[36m";
-    private static final String MAGENTA = "\033[35m";
     
     public static void main (String[] args)
     {
-        int porta = PORTA_PADRAO;
-        
-        if (args.length == 1)
+        if (args.length>1)
         {
+            System.err.println ("Uso esperado: java R [PORTA]\n");
+            return;
+        }
+
+        String porta=R.PORTA_PADRAO;
+        
+        if (args.length==1)
+            porta = args[0];
+
+        ArrayList<Parceiro> usuarios =
+        new ArrayList<Parceiro> ();
+
+        AceitadoraDeConexaoR aceitadoraDeConexao=null;
+        try
+        {
+            aceitadoraDeConexao =
+            new AceitadoraDeConexaoR (porta, usuarios);
+            aceitadoraDeConexao.start();
+        }
+        catch (Exception erro)
+        {
+            System.err.println ("Escolha uma porta apropriada e liberada para uso!\n");
+            return;
+        }
+
+        System.out.println(CIANO + "[R] Servidor iniciado na porta " + porta + "!" + RESET);
+        System.out.println(VERDE + "[R] ✓ AceitadoraDeConexaoR iniciada!" + RESET);
+        System.out.println(AZUL + "[R] Aguardando conexões..." + RESET);
+
+        for(;;)
+        {
+            System.out.println ("O servidor esta ativo! Para desativa-lo,");
+            System.out.println ("use o comando \"desativar\"\n");
+            System.out.print   ("> ");
+
+            String comando=null;
             try
             {
-                porta = Integer.parseInt(args[0]);
+                comando = Teclado.getUmString();
             }
-            catch (NumberFormatException e)
+            catch (Exception erro)
+            {}
+
+            if (comando.toLowerCase().equals("desativar"))
             {
-                System.err.println("Porta inválida! Usando porta padrão: " + PORTA_PADRAO);
-            }
-        }
-        
-        System.out.println(CIANO + "[R] Iniciando servidor na porta " + porta + RESET);
-        
-        try (ServerSocket serverSocket = new ServerSocket(porta))
-        {
-            System.out.println(VERDE + "[R] ✓ Servidor iniciado com sucesso!" + RESET);
-            System.out.println(AZUL + "[R] Aguardando conexões..." + RESET);
-            
-            while (true)
-            {
-                Socket conexao = serverSocket.accept();
-                System.out.println(AMARELO + "[R] Conexão aceita de " + conexao.getInetAddress().getHostAddress() + RESET);
-                
-                // Criar thread para tratar a conexão
-                Thread threadConexao = new Thread(() -> {
-                    tratarConexao(conexao);
-                });
-                threadConexao.start();
-            }
-        }
-        catch (IOException e)
-        {
-            System.err.println(VERMELHO + "[R] ✗ Erro no servidor: " + e.getMessage() + RESET);
-        }
-    }
-    
-    private static void tratarConexao(Socket conexao)
-    {
-        try (ObjectInputStream receptor = new ObjectInputStream(conexao.getInputStream());
-             ObjectOutputStream transmissor = new ObjectOutputStream(conexao.getOutputStream()))
-        {
-            System.out.println(VERDE + "[R] ✓ Streams criados para " + conexao.getInetAddress().getHostAddress() + RESET);
-            
-            // OBRIGATÓRIO: Loop para manter a conexão persistente
-            for(;;) 
-            {
-                try 
+                synchronized (usuarios)
                 {
-                    System.out.println(AZUL + "[R] Aguardando comunicado..." + RESET);
+                    ComunicadoEncerramento comunicadoEncerramento =
+                    new ComunicadoEncerramento ();
                     
-                    // Espera por qualquer comunicado
-                    Comunicado comunicado = (Comunicado) receptor.readObject();
-                    
-                    if (comunicado instanceof Pedido) 
+                    for (Parceiro usuario:usuarios)
                     {
-                        Pedido pedido = (Pedido) comunicado;
-                        System.out.println(AMARELO + "[R] Pedido recebido de " + conexao.getInetAddress().getHostAddress() + RESET);
-                        
-                        // 1. Processa o pedido (faz a contagem, etc.)
-                        long inicioProcessamento = System.currentTimeMillis();
-                        int qtdProcessadores = Runtime.getRuntime().availableProcessors();
-                        byte[] numeros = pedido.getNumeros();
-                        int procurado = pedido.getProcurado();
-                        
-                        System.out.println(AZUL + "[R] Processando vetor de " + String.format("%,d", numeros.length) + " elementos com " + qtdProcessadores + " threads" + RESET);
-                        
-                        // Dividir vetor em partes
-                        int tamanhoParte = numeros.length / qtdProcessadores;
-                        int contagemTotal = 0;
-                        
-                        Thread[] threads = new Thread[qtdProcessadores];
-                        int[] resultados = new int[qtdProcessadores];
-                        long[] temposThreads = new long[qtdProcessadores];
-                        
-                        for (int i = 0; i < qtdProcessadores; i++)
+                        try
                         {
-                            final int indice = i;
-                            final int inicio = i * tamanhoParte;
-                            final int fim = (i == qtdProcessadores - 1) ? numeros.length : (i + 1) * tamanhoParte;
-                            
-                            threads[i] = new Thread(() -> {
-                                long inicioThread = System.currentTimeMillis();
-                                int contagemParcial = 0;
-                                for (int j = inicio; j < fim; j++)
-                                {
-                                    if (numeros[j] == procurado)
-                                    {
-                                        contagemParcial++;
-                                    }
-                                }
-                                long fimThread = System.currentTimeMillis();
-                                resultados[indice] = contagemParcial;
-                                temposThreads[indice] = fimThread - inicioThread;
-                                System.out.println(MAGENTA + "[R] Thread " + indice + " processou " + String.format("%,d", fim - inicio) + " elementos, encontrou " + contagemParcial + " ocorrências (tempo: " + temposThreads[indice] + "ms)" + RESET);
-                            });
-                            threads[i].start();
+                            usuario.receba (comunicadoEncerramento);
+                            usuario.adeus  ();
                         }
-                        
-                        // Aguardar todas as threads
-                        System.out.println(CIANO + "[R] Aguardando processamento das threads..." + RESET);
-                        for (Thread thread : threads)
-                        {
-                            thread.join();
-                        }
-                        
-                        long fimProcessamento = System.currentTimeMillis();
-                        long tempoTotal = fimProcessamento - inicioProcessamento;
-                        
-                        // Somar resultados
-                        for (int resultado : resultados)
-                        {
-                            contagemTotal += resultado;
-                        }
-                        
-                        System.out.println(VERDE + "[R] ✓ Contagem final: " + contagemTotal + RESET);
-                        System.out.println(CIANO + "[R] 📊 MÉTRICAS DE TEMPO:" + RESET);
-                        System.out.println(AMARELO + "[R]   • Tempo total de processamento: " + tempoTotal + "ms" + RESET);
-                        
-                        for (int i = 0; i < temposThreads.length; i++)
-                        {
-                            System.out.println(AMARELO + "[R]   • Thread " + i + ": " + temposThreads[i] + "ms" + RESET);
-                        }
-                        
-                        // 2. Envia a Resposta
-                        Resposta resposta = new Resposta(contagemTotal);
-                        transmissor.writeObject(resposta);
-                        transmissor.flush();
-                        System.out.println(VERDE + "[R] ✓ Resposta enviada: " + contagemTotal + RESET);
-                        
-                        // 3. NÃO saia do loop! Volte para o 'for(;;)' e espere o próximo Pedido
-                        System.out.println(CIANO + "[R] Aguardando próximo pedido..." + RESET);
+                        catch (Exception erro)
+                        {}
                     }
-                    else if (comunicado instanceof ComunicadoEncerramento) 
-                    {
-                        // 1. Cliente pediu para sair
-                        System.out.println(AMARELO + "[R] Comunicado de encerramento recebido de " + conexao.getInetAddress().getHostAddress() + RESET);
-                        // 2. SÓ AGORA você pode sair do loop 'for(;;)'
-                        break;
-                    }
-                } 
-                catch (Exception e) 
-                {
-                    // Se der erro (ex: cliente desconectou à força), saia do loop
-                    System.err.println(VERMELHO + "[R] ✗ Erro na conexão com " + conexao.getInetAddress().getHostAddress() + ": " + e.getMessage() + RESET);
-                    break; 
                 }
+
+                System.out.println ("O servidor foi desativado!\n");
+                System.exit(0);
             }
-        }
-        catch (Exception e)
-        {
-            System.err.println(VERMELHO + "[R] ✗ Erro na conexão com " + conexao.getInetAddress().getHostAddress() + ": " + e.getMessage() + RESET);
-        }
-        finally
-        {
-            try
-            {
-                conexao.close();
-                System.out.println(CIANO + "[R] Conexão fechada com " + conexao.getInetAddress().getHostAddress() + RESET);
-            }
-            catch (IOException e)
-            {
-                System.err.println(VERMELHO + "[R] ✗ Erro ao fechar conexão: " + e.getMessage() + RESET);
-            }
+            else
+                System.err.println ("Comando invalido!\n");
         }
     }
 }
-

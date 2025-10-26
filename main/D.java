@@ -3,9 +3,14 @@ import java.net.*;
 import java.util.*;
 import java.util.concurrent.Semaphore;
 
+/**
+ * Classe principal do Distribuidor (Cliente).
+ * Gerencia a UI (Menu) e coordena as threads 'TrabalhadoraD' para processar
+ * requisições em paralelo distribuídas entre múltiplos servidores.
+ */
 public class D
 {
-    // IPs dos servidores (hard-coded conforme enunciado)
+    // Configuração estática dos endereços dos receptores
     private static final String[] IPS_SERVIDORES = {"localhost", "localhost", "localhost"};
     private static final int[] PORTAS_SERVIDORES = {12345, 12346, 12347};
     
@@ -17,7 +22,8 @@ public class D
     private static final String VERMELHO = "\033[31m";
     private static final String CIANO = "\033[36m";
     
-    // Semáforo para garantir que apenas UMA thread crie a cópia por vez
+    // Mutex (Semaphore) para serializar a alocação de memória do segmento.
+    // (Previne OutOfMemoryError por alocação concorrente)
     private static Semaphore semaforoCopia = new Semaphore(1, true);
     
     // Variáveis de estado para manter o vetor entre operações do menu
@@ -156,7 +162,6 @@ public class D
         }
         while (opcao != 'T');
         
-        // Encerrar após sair do menu
         encerrarConexoes(servidores);
         System.out.println(CIANO + "[D] Programa encerrado!" + RESET);
     }
@@ -257,7 +262,7 @@ public class D
             
             long inicioProcessamento = System.currentTimeMillis();
             
-            // Fase 1: Iniciar Todas as Tarefas
+            // 1. Iniciar todas as tarefas
             System.out.println(CIANO + "[D] FASE 1: Iniciando todas as threads..." + RESET);
             TrabalhadoraD[] threads = new TrabalhadoraD[servidores.size()];
             
@@ -266,15 +271,12 @@ public class D
                 final int inicio = i * tamanhoParte;
                 final int fim = (i == servidores.size() - 1) ? vetorAtual.length : (i + 1) * tamanhoParte;
                 
-                // Criar TrabalhadoraD sem cópia do vetor (apenas referências)
                 threads[i] = new TrabalhadoraD(vetorAtual, inicio, fim, servidores.get(i), numeroProcurado, semaforoCopia);
-                
-                // Iniciar thread (Fase 1)
                 threads[i].start();
                 System.out.println(VERDE + "[D] ✓ Thread " + i + " iniciada (start())" + RESET);
             }
             
-            // Fase 2: Sincronizar (Aguardar) Todas as Tarefas
+            // 2. Sincronizar (aguardar) todas as tarefas
             System.out.println(CIANO + "[D] FASE 2: Aguardando todas as threads..." + RESET);
             for (int i = 0; i < threads.length; i++)
             {
@@ -294,14 +296,14 @@ public class D
             long fimProcessamento = System.currentTimeMillis();
             long tempoTotal = fimProcessamento - inicioProcessamento;
             
-            // Somar resultados das TrabalhadoraD
+            // 3. Consolidar resultados parciais de todas as threads
             int contagemTotal = 0;
             for (int i = 0; i < threads.length; i++)
             {
                 contagemTotal += threads[i].getContagemParcial();
             }
             
-            // Mostrar métricas de tempo
+            // 4. Exibir resultados e métricas de tempo
             System.out.println(VERDE + "[D] ✓ Contagem final: " + contagemTotal + RESET);
             System.out.println(CIANO + "[D] 📊 MÉTRICAS DE TEMPO:" + RESET);
             System.out.println(AMARELO + "[D]   • Tempo total de processamento: " + tempoTotal + "ms" + RESET);
@@ -311,7 +313,7 @@ public class D
                 System.out.println(AMARELO + "[D]   • Thread " + i + ": " + threads[i].getTempoThread() + "ms" + RESET);
             }
             
-            // Tarefa concluída, voltando ao menu
+            // 5. Retornar ao menu principal
             System.out.println(VERDE + "[D] ✓ Tarefa concluída!" + RESET);
         }
         catch (Exception e)
@@ -319,8 +321,6 @@ public class D
             System.err.println(VERMELHO + "[D] ✗ Erro ao processar novo vetor: " + e.getMessage() + RESET);
         }
     }
-    
-    
     
     private static void encerrarConexoes(List<Parceiro> servidores)
     {
@@ -342,108 +342,5 @@ public class D
         }
         
         System.out.println(CIANO + "[D] Conexões encerradas!" + RESET);
-    }
-    
-    // Classe interna TrabalhadoraD
-    private static class TrabalhadoraD extends Thread
-    {
-        private byte[] grandeVetor;
-        private int inicio;
-        private int fim;
-        private Parceiro servidor;
-        private int procurado;
-        private int contagemParcial;
-        private long tempoThread;
-        private Semaphore semaforo;
-        
-        public TrabalhadoraD(byte[] grandeVetor, int inicio, int fim, Parceiro servidor, int procurado, Semaphore semaforo)
-        {
-            this.grandeVetor = grandeVetor;
-            this.inicio = inicio;
-            this.fim = fim;
-            this.servidor = servidor;
-            this.procurado = procurado;
-            this.semaforo = semaforo;
-            this.contagemParcial = 0;
-        }
-        
-        public int getContagemParcial()
-        {
-            return this.contagemParcial;
-        }
-        
-        public long getTempoThread()
-        {
-            return this.tempoThread;
-        }
-        
-        @Override
-        public void run()
-        {
-            long inicioThread = System.currentTimeMillis();
-            byte[] minhaParte = null;
-            
-            try
-            {
-                // --- INÍCIO DA SEÇÃO CRÍTICA (MEMÓRIA) ---
-                this.semaforo.acquire(); // 1. Pede permissão para copiar
-                
-                // Criar segmento do vetor dentro do run() para serializar alocação
-                minhaParte = Arrays.copyOfRange(this.grandeVetor, this.inicio, this.fim);
-                
-                this.semaforo.release(); // 2. Libera para a próxima thread copiar
-                // --- FIM DA SEÇÃO CRÍTICA (MEMÓRIA) ---
-                
-                System.out.println(AMARELO + "[TrabalhadoraD] Thread " + Thread.currentThread().getName() + 
-                                 " processando " + String.format("%,d", minhaParte.length) + " elementos" + RESET);
-                
-                // 3. A comunicação de rede (lenta) OCORRE EM PARALELO (fora do semáforo)
-                // Usar Parceiro exatamente como Cliente.java para transação simples
-                // Enviar pedido
-                this.servidor.receba(new Pedido(minhaParte, this.procurado));
-                
-                // Aguardar resposta (bloqueando)
-                Comunicado c = this.servidor.envie();
-                
-                // Verificar se é Resposta
-                if (c instanceof Resposta)
-                {
-                    Resposta resposta = (Resposta) c;
-                    this.contagemParcial = resposta.getContagem();
-                    System.out.println(VERDE + "[TrabalhadoraD] Thread " + Thread.currentThread().getName() + 
-                                     " recebeu resposta: " + this.contagemParcial + RESET);
-                }
-                else
-                {
-                    System.err.println(VERMELHO + "[TrabalhadoraD] Thread " + Thread.currentThread().getName() + 
-                                     " recebeu comunicado inesperado: " + c.getClass().getSimpleName() + RESET);
-                    this.contagemParcial = 0;
-                }
-                
-                // Liberar memória do segmento
-                minhaParte = null;
-                System.gc();
-            }
-            catch (Exception e)
-            {
-                System.err.println(VERMELHO + "[TrabalhadoraD] Erro na thread " + Thread.currentThread().getName() + 
-                                 ": " + e.getMessage() + RESET);
-                this.contagemParcial = 0;
-            }
-            finally
-            {
-                // Garantir que o semáforo seja liberado mesmo em caso de erro
-                if (this.semaforo.availablePermits() == 0)
-                {
-                    this.semaforo.release();
-                }
-            }
-            
-            long fimThread = System.currentTimeMillis();
-            this.tempoThread = fimThread - inicioThread;
-            
-            System.out.println(CIANO + "[TrabalhadoraD] Thread " + Thread.currentThread().getName() + 
-                             " finalizada em " + this.tempoThread + "ms" + RESET);
-        }
     }
 }

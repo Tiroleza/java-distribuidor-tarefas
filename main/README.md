@@ -82,9 +82,23 @@ java -Xmx3G ContagemSequencial
 - **Comunicação**: TCP/IP com serialização de objetos usando `Parceiro`
 - **Métricas**: Tempo de geração, processamento e cada thread
 - **Memória**: Estimativa automática baseada em 3GB disponível
-- **Arquitetura**: Classe interna `TrabalhadoraD` com Semaphore para evitar OutOfMemoryError
+- **Arquitetura**: Classes de thread separadas seguindo padrão de referência
 - **Conexões**: Servidores mantêm conexões persistentes com loop `for(;;)`
 - **Sincronização**: Semaphore protege seção crítica de cópia de memória
+
+## Arquitetura Refatorada (Padrão de Referência)
+
+### Servidor (R.java)
+
+- **AceitadoraDeConexaoR.java**: Thread dedicada para `serverSocket.accept()`
+- **SupervisoraDeConexaoR.java**: Thread dedicada para comunicação com cada cliente
+- **R.java**: Apenas inicia `AceitadoraDeConexaoR` (padrão do Servidor.java)
+
+### Cliente (D.java)
+
+- **TrabalhadoraD.java**: Classe de thread separada (não mais interna)
+- **D.java**: Menu interativo e coordenação das threads
+- **Semaphore**: Protege seção crítica de alocação de memória
 
 ## Comparação de Performance
 

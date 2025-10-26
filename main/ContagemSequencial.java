@@ -23,7 +23,7 @@ public class ContagemSequencial
     {
         System.out.println(CIANO + "[SEQ] Iniciando contagem sequencial..." + RESET);
         
-        System.out.println(VERDE + "[SEQ] ✓ Sistema sequencial ativo! Menu interativo disponível." + RESET);
+        System.out.println(VERDE + "[SEQ] Sistema sequencial ativo! Menu interativo disponível." + RESET);
         
         // Menu interativo baseado no Cliente.java
         char opcao = ' ';
@@ -162,7 +162,7 @@ public class ContagemSequencial
         int tamanhoLimitado = Math.min(ultimoBemSucedido, 2_000_000_000); // Máximo 2GB (limite do int)
         if (tamanhoLimitado < ultimoBemSucedido)
         {
-            System.out.println(AMARELO + "[SEQ] ⚠️  Limitando vetor para " + String.format("%,d", tamanhoLimitado) + " elementos (2GB máximo)" + RESET);
+            System.out.println(AMARELO + "[SEQ]  Limitando vetor para " + String.format("%,d", tamanhoLimitado) + " elementos (2GB máximo)" + RESET);
         }
         
         return tamanhoLimitado;
@@ -190,11 +190,11 @@ public class ContagemSequencial
             tamanhoAtual = tamanho;
             
             long fimGeracao = System.currentTimeMillis();
-            System.out.println(VERDE + "[SEQ] ✓ Vetor gerado em " + (fimGeracao - inicioGeracao) + "ms!" + RESET);
+            System.out.println(VERDE + "[SEQ] Vetor gerado em " + (fimGeracao - inicioGeracao) + "ms!" + RESET);
         }
         catch (Exception e)
         {
-            System.err.println(VERMELHO + "[SEQ] ✗ Erro ao gerar vetor: " + e.getMessage() + RESET);
+            System.err.println(VERMELHO + "[SEQ] Erro ao gerar vetor: " + e.getMessage() + RESET);
             vetorAtual = null;
             tamanhoAtual = 0;
         }
@@ -234,7 +234,7 @@ public class ContagemSequencial
         }
         catch (Exception e)
         {
-            System.err.println(VERMELHO + "[SEQ] ✗ Erro durante a contagem: " + e.getMessage() + RESET);
+            System.err.println(VERMELHO + "[SEQ] Erro durante a contagem: " + e.getMessage() + RESET);
             return;
         }
 
@@ -242,11 +242,11 @@ public class ContagemSequencial
         long tempoTotal = fimProcessamento - inicioProcessamento;
 
         // 4. Exibir resultados
-        System.out.println(VERDE + "[SEQ] ✓ Contagem final: " + contagemTotal + RESET);
-        System.out.println(CIANO + "[SEQ] 📊 MÉTRICAS DE TEMPO (SEQUENCIAL):" + RESET);
-        System.out.println(AMARELO + "[SEQ]   • Tempo total de processamento: " + tempoTotal + "ms" + RESET);
+        System.out.println(VERDE + "[SEQ] Contagem final: " + contagemTotal + RESET);
+        System.out.println(CIANO + "[SEQ] MÉTRICAS DE TEMPO (SEQUENCIAL):" + RESET);
+        System.out.println(AMARELO + "[SEQ]   - Tempo total de processamento: " + tempoTotal + "ms" + RESET);
         
         // Tarefa concluída, voltando ao menu
-        System.out.println(VERDE + "[SEQ] ✓ Tarefa concluída!" + RESET);
+        System.out.println(VERDE + "[SEQ] Tarefa concluída!" + RESET);
     }
 }

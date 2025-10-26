@@ -86,7 +86,7 @@ public class SupervisoraDeConexaoR extends Thread
                 this.usuarios.add (this.usuario);
             }
 
-            System.out.println(VERDE + "[R] ✓ Streams criados para " + conexao.getInetAddress().getHostAddress() + RESET);
+            System.out.println(VERDE + "[R] Streams criados para " + conexao.getInetAddress().getHostAddress() + RESET);
             
             for(;;)
             {
@@ -134,7 +134,7 @@ public class SupervisoraDeConexaoR extends Thread
                         }
                         catch (InterruptedException e)
                         {
-                            System.err.println(VERMELHO + "[R] ✗ Erro ao aguardar Thread " + i + ": " + e.getMessage() + RESET);
+                            System.err.println(VERMELHO + "[R] Erro ao aguardar Thread " + i + ": " + e.getMessage() + RESET);
                         }
                     }
                     
@@ -147,19 +147,19 @@ public class SupervisoraDeConexaoR extends Thread
                         contagemTotal += threads[i].getContagemParcial();
                     }
                     
-                    System.out.println(VERDE + "[R] ✓ Contagem final: " + contagemTotal + RESET);
-                    System.out.println(CIANO + "[R] 📊 MÉTRICAS DE TEMPO:" + RESET);
-                    System.out.println(AMARELO + "[R]   • Tempo total de processamento: " + tempoTotal + "ms" + RESET);
+                    System.out.println(VERDE + "[R] Contagem final: " + contagemTotal + RESET);
+                    System.out.println(CIANO + "[R] MÉTRICAS DE TEMPO:" + RESET);
+                    System.out.println(AMARELO + "[R]   - Tempo total de processamento: " + tempoTotal + "ms" + RESET);
                     
                     for (int i = 0; i < threads.length; i++)
                     {
-                        System.out.println(AMARELO + "[R]   • Thread " + i + ": " + threads[i].getTempoThread() + "ms" + RESET);
+                        System.out.println(AMARELO + "[R]   - Thread " + i + ": " + threads[i].getTempoThread() + "ms" + RESET);
                     }
                     
                     // 2. Envia a Resposta
                     Resposta resposta = new Resposta(contagemTotal);
                     this.usuario.receba(resposta);
-                    System.out.println(VERDE + "[R] ✓ Resposta enviada: " + contagemTotal + RESET);
+                    System.out.println(VERDE + "[R] Resposta enviada: " + contagemTotal + RESET);
                     
                     // 3. Resposta enviada. Continua o loop para o próximo comunicado
                     System.out.println(CIANO + "[R] Aguardando próximo pedido..." + RESET);

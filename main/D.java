@@ -50,11 +50,11 @@ public class D
                 
                 servidores.add(servidor);
                 
-                System.out.println(VERDE + "[D] ✓ Conectado ao servidor " + IPS_SERVIDORES[i] + ":" + PORTAS_SERVIDORES[i] + RESET);
+                System.out.println(VERDE + "[D] Conectado ao servidor " + IPS_SERVIDORES[i] + ":" + PORTAS_SERVIDORES[i] + RESET);
             }
             catch (Exception e)
             {
-                System.err.println(VERMELHO + "[D] ✗ Erro ao conectar com " + IPS_SERVIDORES[i] + ":" + PORTAS_SERVIDORES[i] + " - " + e.getMessage() + RESET);
+                System.err.println(VERMELHO + "[D] Erro ao conectar com " + IPS_SERVIDORES[i] + ":" + PORTAS_SERVIDORES[i] + " - " + e.getMessage() + RESET);
             }
         }
         
@@ -64,7 +64,7 @@ public class D
             return;
         }
         
-        System.out.println(VERDE + "[D] ✓ Conectado a " + servidores.size() + " servidores. Menu interativo ativo!" + RESET);
+        System.out.println(VERDE + "[D] Conectado a " + servidores.size() + " servidores. Menu interativo ativo!" + RESET);
         
         // Menu interativo baseado no Cliente.java
         char opcao = ' ';
@@ -204,7 +204,7 @@ public class D
         int tamanhoLimitado = Math.min(ultimoBemSucedido, 2_000_000_000); // Máximo 2GB (limite do int)
         if (tamanhoLimitado < ultimoBemSucedido)
         {
-            System.out.println(AMARELO + "[D] ⚠️  Limitando vetor para " + String.format("%,d", tamanhoLimitado) + " elementos (3GB máximo)" + RESET);
+            System.out.println(AMARELO + "[D] Limitando vetor para " + String.format("%,d", tamanhoLimitado) + " elementos (3GB máximo)" + RESET);
         }
         
         return tamanhoLimitado;
@@ -232,11 +232,11 @@ public class D
             tamanhoAtual = tamanho;
             
             long fimGeracao = System.currentTimeMillis();
-            System.out.println(VERDE + "[D] ✓ Vetor gerado em " + (fimGeracao - inicioGeracao) + "ms!" + RESET);
+            System.out.println(VERDE + "[D] Vetor gerado em " + (fimGeracao - inicioGeracao) + "ms!" + RESET);
         }
         catch (Exception e)
         {
-            System.err.println(VERMELHO + "[D] ✗ Erro ao gerar vetor: " + e.getMessage() + RESET);
+            System.err.println(VERMELHO + "[D] Erro ao gerar vetor: " + e.getMessage() + RESET);
             vetorAtual = null;
             tamanhoAtual = 0;
         }
@@ -273,7 +273,7 @@ public class D
                 
                 threads[i] = new TrabalhadoraD(vetorAtual, inicio, fim, servidores.get(i), numeroProcurado, semaforoCopia);
                 threads[i].start();
-                System.out.println(VERDE + "[D] ✓ Thread " + i + " iniciada (start())" + RESET);
+                System.out.println(VERDE + "[D] Thread " + i + " iniciada (start())" + RESET);
             }
             
             // 2. Sincronizar (aguardar) todas as tarefas
@@ -283,15 +283,15 @@ public class D
                 try
                 {
                     threads[i].join();
-                    System.out.println(VERDE + "[D] ✓ Thread " + i + " finalizada (join())" + RESET);
+                    System.out.println(VERDE + "[D] Thread " + i + " finalizada (join())" + RESET);
                 }
                 catch (InterruptedException e)
                 {
-                    System.err.println(VERMELHO + "[D] ✗ Erro ao aguardar Thread " + i + ": " + e.getMessage() + RESET);
+                    System.err.println(VERMELHO + "[D] Erro ao aguardar Thread " + i + ": " + e.getMessage() + RESET);
                 }
             }
             
-            System.out.println(VERDE + "[D] ✓ Todas as threads finalizadas!" + RESET);
+            System.out.println(VERDE + "[D] Todas as threads finalizadas!" + RESET);
             
             long fimProcessamento = System.currentTimeMillis();
             long tempoTotal = fimProcessamento - inicioProcessamento;
@@ -304,21 +304,21 @@ public class D
             }
             
             // 4. Exibir resultados e métricas de tempo
-            System.out.println(VERDE + "[D] ✓ Contagem final: " + contagemTotal + RESET);
-            System.out.println(CIANO + "[D] 📊 MÉTRICAS DE TEMPO:" + RESET);
-            System.out.println(AMARELO + "[D]   • Tempo total de processamento: " + tempoTotal + "ms" + RESET);
+            System.out.println(VERDE + "[D] Contagem final: " + contagemTotal + RESET);
+            System.out.println(CIANO + "[D] MÉTRICAS DE TEMPO:" + RESET);
+            System.out.println(AMARELO + "[D]   - Tempo total de processamento: " + tempoTotal + "ms" + RESET);
             
             for (int i = 0; i < threads.length; i++)
             {
-                System.out.println(AMARELO + "[D]   • Thread " + i + ": " + threads[i].getTempoThread() + "ms" + RESET);
+                System.out.println(AMARELO + "[D]   - Thread " + i + ": " + threads[i].getTempoThread() + "ms" + RESET);
             }
             
             // 5. Retornar ao menu principal
-            System.out.println(VERDE + "[D] ✓ Tarefa concluída!" + RESET);
+            System.out.println(VERDE + "[D] Tarefa concluída!" + RESET);
         }
         catch (Exception e)
         {
-            System.err.println(VERMELHO + "[D] ✗ Erro ao processar novo vetor: " + e.getMessage() + RESET);
+            System.err.println(VERMELHO + "[D] Erro ao processar novo vetor: " + e.getMessage() + RESET);
         }
     }
     
@@ -333,11 +333,11 @@ public class D
             {
                 servidores.get(i).receba(new ComunicadoEncerramento());
                 servidores.get(i).adeus();
-                System.out.println(VERDE + "[D] ✓ Servidor " + i + " encerrado." + RESET);
+                System.out.println(VERDE + "[D] Servidor " + i + " encerrado." + RESET);
             }
             catch (Exception e)
             {
-                System.err.println(VERMELHO + "[D] ✗ Erro ao encerrar conexão com servidor " + i + ": " + e.getMessage() + RESET);
+                System.err.println(VERMELHO + "[D] Erro ao encerrar conexão com servidor " + i + ": " + e.getMessage() + RESET);
             }
         }
         

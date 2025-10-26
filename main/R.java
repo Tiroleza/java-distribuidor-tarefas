@@ -46,7 +46,7 @@ public class R
         }
 
         System.out.println(CIANO + "[R] Servidor iniciado na porta " + porta + "!" + RESET);
-        System.out.println(VERDE + "[R] ✓ AceitadoraDeConexaoR iniciada!" + RESET);
+        System.out.println(VERDE + "[R] AceitadoraDeConexaoR iniciada!" + RESET);
         System.out.println(AZUL + "[R] Aguardando conexões..." + RESET);
 
         for(;;)

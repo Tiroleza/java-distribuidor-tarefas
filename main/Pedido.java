@@ -1,39 +1,47 @@
-/**
- * Classe serializável que encapsula os dados de um pedido de contagem.
- * Contém o vetor de números e o valor procurado.
- */
-public class Pedido extends Comunicado
-{
+import java.util.Arrays;
+
+public class Pedido extends Comunicado {
     private byte[] numeros;
-    private int procurado;
-    
-    public Pedido (byte[] numeros, int procurado)
-    {
+
+    public Pedido(byte[] numeros) {
         this.numeros = numeros;
-        this.procurado = procurado;
     }
-    
-    public byte[] getNumeros ()
-    {
+
+    public byte[] getNumeros() {
         return this.numeros;
     }
-    
-    public int getProcurado ()
-    {
-        return this.procurado;
+
+    // Método principal que o Receptor vai chamar
+    public void ordenar() {
+        mergeSort(this.numeros, 0, this.numeros.length - 1);
     }
-    
-    public int contar()
-    {
-        int contagem = 0;
-        for (byte numero : this.numeros)
-        {
-            if (numero == this.procurado)
-            {
-                contagem++;
+
+    // Implementação clássica do Merge Sort (Subsídio 2)
+    private void mergeSort(byte[] vetor, int inicio, int fim) {
+        if (inicio < fim) {
+            int meio = (inicio + fim) / 2;
+            mergeSort(vetor, inicio, meio);
+            mergeSort(vetor, meio + 1, fim);
+            merge(vetor, inicio, meio, fim);
+        }
+    }
+
+    // A operação de intercalação (Subsídio 1)
+    private void merge(byte[] vetor, int inicio, int meio, int fim) {
+        byte[] left = Arrays.copyOfRange(vetor, inicio, meio + 1);
+        byte[] right = Arrays.copyOfRange(vetor, meio + 1, fim + 1);
+
+        int i = 0, j = 0, k = inicio;
+
+        while (i < left.length && j < right.length) {
+            if (left[i] <= right[j]) {
+                vetor[k++] = left[i++];
+            } else {
+                vetor[k++] = right[j++];
             }
         }
-        return contagem;
+
+        while (i < left.length) vetor[k++] = left[i++];
+        while (j < right.length) vetor[k++] = right[j++];
     }
 }
-

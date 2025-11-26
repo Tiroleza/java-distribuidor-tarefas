@@ -1,19 +1,11 @@
-/**
- * Classe serializável que encapsula o resultado de uma contagem.
- * Retorna o número total de ocorrências encontradas pelo servidor.
- */
-public class Resposta extends Comunicado
-{
-    private Integer contagem;
+public class Resposta extends Comunicado {
+    private byte[] vetorOrdenado;
 
-    public Resposta (int contagem)
-    {
-        this.contagem = contagem;
+    public Resposta(byte[] vetorOrdenado) {
+        this.vetorOrdenado = vetorOrdenado;
     }
 
-    public Integer getContagem ()
-    {
-        return this.contagem;
+    public byte[] getVetorOrdenado() {
+        return this.vetorOrdenado;
     }
 }
-

@@ -1,45 +1,37 @@
 import java.util.*;
 import java.util.concurrent.Semaphore;
 
-/**
- * Thread 'worker' do cliente D.
- * Gerencia a comunicação com UM único servidor R.
- * Cada TrabalhadoraD copia um segmento do vetor e solicita ao servidor a contagem.
- */
 public class TrabalhadoraD extends Thread
 {
     private byte[] grandeVetor;
     private int inicio;
     private int fim;
     private Parceiro servidor;
-    private int procurado;
-    private int contagemParcial;
+    // Procurado removido, pois agora é ordenação completa
+    private byte[] vetorOrdenadoParcial;
     private long tempoThread;
     private Semaphore semaforo;
     
-    // Cores para logs
+    // Cores
     private static final String RESET = "\033[0m";
     private static final String VERDE = "\033[32m";
-    private static final String AZUL = "\033[34m";
     private static final String AMARELO = "\033[33m";
     private static final String VERMELHO = "\033[31m";
     private static final String CIANO = "\033[36m";
-    private static final String MAGENTA = "\033[35m";
     
-    public TrabalhadoraD(byte[] grandeVetor, int inicio, int fim, Parceiro servidor, int procurado, Semaphore semaforo)
+    public TrabalhadoraD(byte[] grandeVetor, int inicio, int fim, Parceiro servidor, Semaphore semaforo)
     {
         this.grandeVetor = grandeVetor;
         this.inicio = inicio;
         this.fim = fim;
         this.servidor = servidor;
-        this.procurado = procurado;
         this.semaforo = semaforo;
-        this.contagemParcial = 0;
+        this.vetorOrdenadoParcial = null;
     }
     
-    public int getContagemParcial()
+    public byte[] getVetorOrdenadoParcial()
     {
-        return this.contagemParcial;
+        return this.vetorOrdenadoParcial;
     }
     
     public long getTempoThread()
@@ -47,11 +39,6 @@ public class TrabalhadoraD extends Thread
         return this.tempoThread;
     }
     
-    /**
-     * Executa a contagem distribuída para este segmento.
-     * Processo: copia o segmento com proteção de semáforo,
-     * envia para o servidor e recebe o resultado.
-     */
     @Override
     public void run()
     {
@@ -60,35 +47,30 @@ public class TrabalhadoraD extends Thread
         
         try
         {
-            // 1. Início da seção crítica (alocação de memória)
-            //    Garante que apenas uma thread por vez crie sua cópia do vetor
+            // 1. Seção Crítica: Copiar fatia
             this.semaforo.acquire();
-            
             minhaParte = Arrays.copyOfRange(this.grandeVetor, this.inicio, this.fim);
-            
-            // 2. Fim da seção crítica
             this.semaforo.release();
             
             System.out.println(AMARELO + "[TrabalhadoraD] Thread " + Thread.currentThread().getName() + 
-                             " processando " + String.format("%,d", minhaParte.length) + " elementos" + RESET);
+                             " enviando " + String.format("%,d", minhaParte.length) + " elementos" + RESET);
             
-            // 3. Envio/recebimento (bloqueio de rede)
-            //    Ocorre fora da seção crítica para permitir paralelismo de rede
-            this.servidor.receba(new Pedido(minhaParte, this.procurado));
+            // 2. Enviar Pedido (Vetor para ordenar)
+            this.servidor.receba(new Pedido(minhaParte)); // Pedido agora só recebe o vetor
+            
+            // 3. Receber Resposta (Vetor Ordenado)
             Comunicado c = this.servidor.envie();
             
             if (c instanceof Resposta)
             {
                 Resposta resposta = (Resposta) c;
-                this.contagemParcial = resposta.getContagem();
+                this.vetorOrdenadoParcial = resposta.getVetorOrdenado(); // Método novo na classe Resposta
                 System.out.println(VERDE + "[TrabalhadoraD] Thread " + Thread.currentThread().getName() + 
-                                 " recebeu resposta: " + this.contagemParcial + RESET);
+                                 " recebeu vetor ordenado de tamanho: " + String.format("%,d", this.vetorOrdenadoParcial.length) + RESET);
             }
             else
             {
-                System.err.println(VERMELHO + "[TrabalhadoraD] Thread " + Thread.currentThread().getName() + 
-                                 " recebeu comunicado inesperado: " + c.getClass().getSimpleName() + RESET);
-                this.contagemParcial = 0;
+                System.err.println(VERMELHO + "[TrabalhadoraD] Recebeu comunicado inesperado!" + RESET);
             }
             
             minhaParte = null;
@@ -96,17 +78,11 @@ public class TrabalhadoraD extends Thread
         }
         catch (Exception e)
         {
-            System.err.println(VERMELHO + "[TrabalhadoraD] Erro na thread " + Thread.currentThread().getName() + 
-                             ": " + e.getMessage() + RESET);
-            this.contagemParcial = 0;
+            System.err.println(VERMELHO + "[TrabalhadoraD] Erro: " + e.getMessage() + RESET);
         }
         finally
         {
-            // Garantir que o semáforo seja liberado mesmo em caso de erro
-            if (this.semaforo.availablePermits() == 0)
-            {
-                this.semaforo.release();
-            }
+            if (this.semaforo.availablePermits() == 0) this.semaforo.release();
         }
         
         long fimThread = System.currentTimeMillis();

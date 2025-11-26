@@ -2,11 +2,6 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 
-/**
- * Thread dedicada para gerenciar o ciclo de vida de UMA única conexão de cliente.
- * Recebe comunicados do cliente, processa pedidos usando paralelismo interno
- * e mantém a conexão ativa para múltiplas requisições.
- */
 public class SupervisoraDeConexaoR extends Thread
 {
     private Parceiro            usuario;
@@ -20,18 +15,11 @@ public class SupervisoraDeConexaoR extends Thread
     private static final String AMARELO = "\033[33m";
     private static final String VERMELHO = "\033[31m";
     private static final String CIANO = "\033[36m";
-    private static final String MAGENTA = "\033[35m";
 
-    public SupervisoraDeConexaoR
-    (Socket conexao, ArrayList<Parceiro> usuarios)
-    throws Exception
+    public SupervisoraDeConexaoR(Socket conexao, ArrayList<Parceiro> usuarios) throws Exception
     {
-        if (conexao==null)
-            throw new Exception ("Conexao ausente");
-
-        if (usuarios==null)
-            throw new Exception ("Usuarios ausentes");
-
+        if (conexao==null) throw new Exception ("Conexao ausente");
+        if (usuarios==null) throw new Exception ("Usuarios ausentes");
         this.conexao  = conexao;
         this.usuarios = usuarios;
     }
@@ -39,50 +27,25 @@ public class SupervisoraDeConexaoR extends Thread
     public void run ()
     {
         ObjectOutputStream transmissor=null;
-        try
-        {
-            transmissor =
-            new ObjectOutputStream(
-            this.conexao.getOutputStream());
-        }
-        catch (Exception erro)
-        {
-            return;
-        }
+        try {
+            transmissor = new ObjectOutputStream(this.conexao.getOutputStream());
+        } catch (Exception erro) { return; }
         
         ObjectInputStream receptor=null;
-        try
-        {
-            receptor=
-            new ObjectInputStream(
-            this.conexao.getInputStream());
-        }
-        catch (Exception err0)
-        {
-            try
-            {
-                transmissor.close();
-            }
-            catch (Exception falha)
-            {} // so tentando fechar antes de acabar a thread
-            
+        try {
+            receptor = new ObjectInputStream(this.conexao.getInputStream());
+        } catch (Exception err0) {
+            try { transmissor.close(); } catch (Exception falha) {}
             return;
         }
 
-        try
-        {
-            this.usuario =
-            new Parceiro (this.conexao,
-                          receptor,
-                          transmissor);
-        }
-        catch (Exception erro)
-        {} // sei que passei os parametros corretos
+        try {
+            this.usuario = new Parceiro (this.conexao, receptor, transmissor);
+        } catch (Exception erro) {}
 
         try
         {
-            synchronized (this.usuarios)
-            {
+            synchronized (this.usuarios) {
                 this.usuarios.add (this.usuario);
             }
 
@@ -94,103 +57,94 @@ public class SupervisoraDeConexaoR extends Thread
                 
                 Comunicado comunicado = this.usuario.envie();
 
-                if (comunicado==null)
-                    return;
+                if (comunicado==null) return;
+                
                 else if (comunicado instanceof Pedido)
                 {
                     Pedido pedido = (Pedido)comunicado;
-                    System.out.println(AMARELO + "[R] Pedido recebido de " + conexao.getInetAddress().getHostAddress() + RESET);
+                    System.out.println(AMARELO + "[R] Pedido de ordenação recebido de " + conexao.getInetAddress().getHostAddress() + RESET);
                     
-                    // 1. Processa o pedido (faz a contagem, etc.)
                     long inicioProcessamento = System.currentTimeMillis();
                     int qtdProcessadores = Runtime.getRuntime().availableProcessors();
                     byte[] numeros = pedido.getNumeros();
-                    int procurado = pedido.getProcurado();
                     
-                    System.out.println(AZUL + "[R] Processando vetor de " + String.format("%,d", numeros.length) + " elementos com " + qtdProcessadores + " threads" + RESET);
+                    System.out.println(AZUL + "[R] Ordenando vetor de " + String.format("%,d", numeros.length) + " elementos com " + qtdProcessadores + " threads" + RESET);
                     
-                    // Dividir vetor em partes
                     int tamanhoParte = numeros.length / qtdProcessadores;
-                    int contagemTotal = 0;
                     
-                    Contadora[] threads = new Contadora[qtdProcessadores];
+                    // Vetor de Threads Ordenadoras (substitui Contadora)
+                    Ordenadora[] threads = new Ordenadora[qtdProcessadores];
                     
                     for (int i = 0; i < qtdProcessadores; i++)
                     {
                         final int inicio = i * tamanhoParte;
                         final int fim = (i == qtdProcessadores - 1) ? numeros.length : (i + 1) * tamanhoParte;
                         
-                        threads[i] = new Contadora(numeros, inicio, fim, procurado, i);
+                        // Cria uma cópia da fatia para a thread ordenar
+                        byte[] fatia = Arrays.copyOfRange(numeros, inicio, fim);
+                        
+                        threads[i] = new Ordenadora(fatia, i);
                         threads[i].start();
                     }
                     
-                    // Aguardar todas as threads
-                    System.out.println(CIANO + "[R] Aguardando processamento das threads..." + RESET);
+                    System.out.println(CIANO + "[R] Aguardando ordenação das threads..." + RESET);
                     for (int i = 0; i < threads.length; i++)
                     {
-                        try
-                        {
-                            threads[i].join();
+                        try { threads[i].join(); }
+                        catch (InterruptedException e) {
+                            System.err.println(VERMELHO + "[R] Erro ao aguardar Thread " + i + RESET);
                         }
-                        catch (InterruptedException e)
-                        {
-                            System.err.println(VERMELHO + "[R] Erro ao aguardar Thread " + i + ": " + e.getMessage() + RESET);
-                        }
+                    }
+                    
+                    // --- FASE DE MERGE (Intercalação) DOS RESULTADOS LOCAIS ---
+                    System.out.println(CIANO + "[R] Intercalando resultados das threads..." + RESET);
+                    
+                    // Pega o vetor da primeira thread como base
+                    byte[] vetorOrdenadoTotal = threads[0].getVetorOrdenado();
+                    
+                    // Intercala com os vetores das outras threads sequencialmente
+                    for (int i = 1; i < threads.length; i++)
+                    {
+                        vetorOrdenadoTotal = intercalar(vetorOrdenadoTotal, threads[i].getVetorOrdenado());
                     }
                     
                     long fimProcessamento = System.currentTimeMillis();
                     long tempoTotal = fimProcessamento - inicioProcessamento;
                     
-                    // Somar resultados
-                    for (int i = 0; i < threads.length; i++)
-                    {
-                        contagemTotal += threads[i].getContagemParcial();
-                    }
+                    System.out.println(VERDE + "[R] Ordenação finalizada. Tamanho: " + String.format("%,d", vetorOrdenadoTotal.length) + RESET);
+                    System.out.println(AMARELO + "[R] Tempo total de processamento: " + tempoTotal + "ms" + RESET);
                     
-                    System.out.println(VERDE + "[R] Contagem final: " + contagemTotal + RESET);
-                    System.out.println(CIANO + "[R] MÉTRICAS DE TEMPO:" + RESET);
-                    System.out.println(AMARELO + "[R]   - Tempo total de processamento: " + tempoTotal + "ms" + RESET);
-                    
-                    for (int i = 0; i < threads.length; i++)
-                    {
-                        System.out.println(AMARELO + "[R]   - Thread " + i + ": " + threads[i].getTempoThread() + "ms" + RESET);
-                    }
-                    
-                    // 2. Envia a Resposta
-                    Resposta resposta = new Resposta(contagemTotal);
+                    // Envia a Resposta com o vetor ordenado
+                    Resposta resposta = new Resposta(vetorOrdenadoTotal);
                     this.usuario.receba(resposta);
-                    System.out.println(VERDE + "[R] Resposta enviada: " + contagemTotal + RESET);
-                    
-                    // 3. Resposta enviada. Continua o loop para o próximo comunicado
-                    System.out.println(CIANO + "[R] Aguardando próximo pedido..." + RESET);
+                    System.out.println(VERDE + "[R] Vetor ordenado enviado ao cliente." + RESET);
                 }
                 else if (comunicado instanceof ComunicadoEncerramento)
                 {
-                    // 1. Remover cliente da lista e fechar conexão
-                    System.out.println(AMARELO + "[R] Comunicado de encerramento recebido de " + conexao.getInetAddress().getHostAddress() + RESET);
-                    
-                    synchronized (this.usuarios)
-                    {
-                        this.usuarios.remove (this.usuario);
-                    }
+                    System.out.println(AMARELO + "[R] Encerrando conexão com " + conexao.getInetAddress().getHostAddress() + RESET);
+                    synchronized (this.usuarios) { this.usuarios.remove (this.usuario); }
                     this.usuario.adeus();
-                    
-                    // 2. Cliente pediu encerramento. Sai do loop
                     return;
                 }
             }
         }
         catch (Exception erro)
         {
-            try
-            {
-                transmissor.close ();
-                receptor   .close ();
-            }
-            catch (Exception falha)
-            {} // so tentando fechar antes de acabar a thread
-
+            try { transmissor.close(); receptor.close(); } catch (Exception falha) {}
             return;
         }
+    }
+
+    // Método Utilitário para Intercalar (Merge) dois vetores ordenados
+    private byte[] intercalar(byte[] A, byte[] B) {
+        byte[] C = new byte[A.length + B.length];
+        int i = 0, j = 0, k = 0;
+        while (i < A.length && j < B.length) {
+            if (A[i] <= B[j]) C[k++] = A[i++];
+            else              C[k++] = B[j++];
+        }
+        while (i < A.length) C[k++] = A[i++];
+        while (j < B.length) C[k++] = B[j++];
+        return C;
     }
 }

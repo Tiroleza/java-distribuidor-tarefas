@@ -1,0 +1,117 @@
+═══════════════════════════════════════════════════════════════
+  DIAGRAMA: ESCALONAMENTO DE THREADS MERGEADORAS
+═══════════════════════════════════════════════════════════════
+
+ANTES (VERSÃO ANTERIOR):
+───────────────────────────────────────────────────────────────
+
+RECEPTOR (R):
+  Thread 1 ordena ─┐
+  Thread 2 ordena ─┤
+  Thread 3 ordena ─┼→ Merge SEQUENCIAL (um por vez)
+  Thread 4 ordena ─┤    ↓
+  Thread 5 ordena ─┤    V1 + V2 → V12
+  Thread 6 ordena ─┤    V12 + V3 → V123
+  Thread 7 ordena ─┤    V123 + V4 → V1234
+  Thread 8 ordena ─┘    V1234 + V5 → V12345
+                        ... (lento, sequencial)
+                        Resultado final
+
+DISTRIBUIDOR (D):
+  Recebe V1 do R1 ─┐
+  Recebe V2 do R2 ─┼→ Merge SEQUENCIAL (um por vez)
+  Recebe V3 do R3 ─┤    ↓
+  Recebe V4 do R4 ─┘    V1 + V2 → V12
+                        V12 + V3 → V123
+                        V123 + V4 → V1234
+                        ... (lento, sequencial)
+                        Resultado final
+
+═══════════════════════════════════════════════════════════════
+
+AGORA (VERSÃO CORRIGIDA):
+───────────────────────────────────────────────────────────────
+
+RECEPTOR (R) - Exemplo com 8 threads ordenadoras:
+───────────────────────────────────────────────────────────────
+
+FASE 1: Ordenação (paralela)
+  Thread 1 ordena ─┐
+  Thread 2 ordena ─┤
+  Thread 3 ordena ─┤
+  Thread 4 ordena ─┤
+  Thread 5 ordena ─┤
+  Thread 6 ordena ─┤
+  Thread 7 ordena ─┤
+  Thread 8 ordena ─┘
+        ↓
+  8 vetores ordenados: [V1] [V2] [V3] [V4] [V5] [V6] [V7] [V8]
+
+FASE 2: Merge - RODADA 1 (paralela, limitada por processadores)
+  Mergeadora 1: V1 + V2 ──┐
+  Mergeadora 2: V3 + V4 ──┼→ Paralelo!
+  Mergeadora 3: V5 + V6 ──┤
+  Mergeadora 4: V7 + V8 ──┘
+        ↓
+  4 vetores: [V12] [V34] [V56] [V78]
+
+FASE 3: Merge - RODADA 2 (paralela)
+  Mergeadora 1: V12 + V34 ──┐
+  Mergeadora 2: V56 + V78 ───┘→ Paralelo!
+        ↓
+  2 vetores: [V1234] [V5678]
+
+FASE 4: Merge - RODADA 3 (final)
+  Mergeadora 1: V1234 + V5678
+        ↓
+  1 vetor final: [V12345678] ✓
+
+═══════════════════════════════════════════════════════════════
+
+DISTRIBUIDOR (D) - Exemplo com 10 servidores R:
+───────────────────────────────────────────────────────────────
+
+Recebe 10 vetores ordenados dos R's:
+  [V1] [V2] [V3] [V4] [V5] [V6] [V7] [V8] [V9] [V10]
+
+RODADA 1 (paralela, limitada por processadores - ex: 4 threads):
+  Mergeadora 1: V1 + V2 ──┐
+  Mergeadora 2: V3 + V4 ──┤
+  Mergeadora 3: V5 + V6 ──┼→ Paralelo!
+  Mergeadora 4: V7 + V8 ──┘
+  V9 e V10 passam direto (sem par)
+        ↓
+  5 vetores: [V12] [V34] [V56] [V78] [V9] [V10]
+
+RODADA 2 (paralela):
+  Mergeadora 1: V12 + V34 ──┐
+  Mergeadora 2: V56 + V78 ───┤
+  Mergeadora 3: V9 + V10 ────┘→ Paralelo!
+        ↓
+  3 vetores: [V1234] [V5678] [V910]
+
+RODADA 3 (paralela):
+  Mergeadora 1: V1234 + V5678
+  V910 passa direto (sem par)
+        ↓
+  2 vetores: [V12345678] [V910]
+
+RODADA 4 (final):
+  Mergeadora 1: V12345678 + V910
+        ↓
+  1 vetor final: [V12345678910] ✓
+
+═══════════════════════════════════════════════════════════════
+
+CARACTERÍSTICAS IMPORTANTES:
+───────────────────────────────────────────────────────────────
+
+✓ Threads mergeadoras trabalham em PARALELO
+✓ Múltiplas RODADAS quando necessário
+✓ Limitado por PROCESSADORES (não cria threads infinitas)
+✓ Escalável para QUALQUER quantidade de R's
+✓ Sempre merge de 2 em 2
+✓ Funciona tanto no R quanto no D
+
+═══════════════════════════════════════════════════════════════
+

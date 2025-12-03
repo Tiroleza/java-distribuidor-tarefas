@@ -120,24 +120,74 @@ public class D
             try { threads[i].join(); } catch (Exception e) {}
         }
         
-        // 3. Gather: Intercalar (Merge) os vetores recebidos
-        System.out.println(CIANO + "[D] Intercalando resultados dos servidores..." + RESET);
+        // 3. Gather: Intercalar (Merge) os vetores recebidos usando threads mergeadoras em múltiplas rodadas
+        System.out.println(CIANO + "[D] Iniciando merge com threads mergeadoras..." + RESET);
         
-        // Pega a parte do primeiro servidor como base
-        byte[] vetorFinal = threads[0].getVetorOrdenadoParcial();
-        
-        if (vetorFinal == null) {
-            System.err.println(VERMELHO + "Erro: Servidor retornou nulo." + RESET);
-            return;
-        }
-
-        // Intercala sequencialmente com os demais
-        for (int i = 1; i < threads.length; i++) {
+        // Coleta todos os vetores ordenados dos servidores
+        ArrayList<byte[]> vetoresParaMerge = new ArrayList<>();
+        for (int i = 0; i < threads.length; i++) {
             byte[] parte = threads[i].getVetorOrdenadoParcial();
             if (parte != null) {
-                vetorFinal = intercalar(vetorFinal, parte);
+                vetoresParaMerge.add(parte);
             }
         }
+        
+        if (vetoresParaMerge.isEmpty()) {
+            System.err.println(VERMELHO + "Erro: Nenhum servidor retornou resultado." + RESET);
+            return;
+        }
+        
+        // Faz múltiplas rodadas de merge usando threads mergeadoras
+        // Número máximo de threads simultâneas = número de processadores
+        int qtdProcessadores = Runtime.getRuntime().availableProcessors();
+        int rodada = 1;
+        
+        while (vetoresParaMerge.size() > 1) {
+            System.out.println(CIANO + "[D] Rodada " + rodada + " de merge: " + vetoresParaMerge.size() + " vetores restantes" + RESET);
+            
+            ArrayList<byte[]> proximaRodada = new ArrayList<>();
+            int indice = 0;
+            
+            // Processa pares de vetores usando threads mergeadoras
+            // Em cada iteração, processa um lote de até qtdProcessadores merges simultâneos
+            while (indice < vetoresParaMerge.size()) {
+                ArrayList<Mergeadora> loteAtual = new ArrayList<>();
+                
+                // Cria um lote de threads mergeadoras (máximo = qtdProcessadores)
+                while (indice < vetoresParaMerge.size() && loteAtual.size() < qtdProcessadores) {
+                    if (indice + 1 < vetoresParaMerge.size()) {
+                        // Tem par: cria thread mergeadora
+                        Mergeadora mergeadora = new Mergeadora(
+                            vetoresParaMerge.get(indice),
+                            vetoresParaMerge.get(indice + 1),
+                            indice / 2
+                        );
+                        mergeadora.start();
+                        loteAtual.add(mergeadora);
+                        indice += 2;
+                    } else {
+                        // Vetor ímpar: passa direto para próxima rodada
+                        proximaRodada.add(vetoresParaMerge.get(indice));
+                        indice++;
+                    }
+                }
+                
+                // Aguarda todas as threads do lote atual terminarem
+                for (Mergeadora m : loteAtual) {
+                    try {
+                        m.join();
+                        proximaRodada.add(m.getResultado());
+                    } catch (InterruptedException e) {
+                        System.err.println(VERMELHO + "[D] Erro ao aguardar thread mergeadora" + RESET);
+                    }
+                }
+            }
+            
+            vetoresParaMerge = proximaRodada;
+            rodada++;
+        }
+        
+        byte[] vetorFinal = vetoresParaMerge.get(0);
         
         long fimTotal = System.currentTimeMillis();
         System.out.println(VERDE + "[D] Ordenação concluída! Tempo total: " + (fimTotal - inicioTotal) + "ms" + RESET);
@@ -150,18 +200,6 @@ public class D
         } catch (Exception e) {}
     }
 
-    // Método Utilitário para Intercalar (Merge) - O mesmo usado no servidor
-    private static byte[] intercalar(byte[] A, byte[] B) {
-        byte[] C = new byte[A.length + B.length];
-        int i = 0, j = 0, k = 0;
-        while (i < A.length && j < B.length) {
-            if (A[i] <= B[j]) C[k++] = A[i++];
-            else              C[k++] = B[j++];
-        }
-        while (i < A.length) C[k++] = A[i++];
-        while (j < B.length) C[k++] = B[j++];
-        return C;
-    }
     
     private static void salvarArquivo(String nome, byte[] vetor) {
         try (PrintWriter out = new PrintWriter(new FileWriter(nome))) {

@@ -1,0 +1,91 @@
+═══════════════════════════════════════════════════════════════
+  RESUMO: ESCALONAMENTO DE THREADS MERGEADORAS
+═══════════════════════════════════════════════════════════════
+
+O QUE FOI IMPLEMENTADO:
+───────────────────────────────────────────────────────────────
+
+1. CLASSE MERGEADORA
+   - Thread que faz merge de 2 vetores ordenados
+   - Usada no Receptor (R) e no Distribuidor (D)
+
+2. MÚLTIPLAS RODADAS NO RECEPTOR (R)
+   - Após threads ordenadoras terminarem
+   - Faz merge de 2 em 2 usando threads mergeadoras
+   - Várias rodadas até ter 1 vetor final
+
+3. MÚLTIPLAS RODADAS NO DISTRIBUIDOR (D)
+   - Após receber vetores de todos os R's
+   - Faz merge de 2 em 2 usando threads mergeadoras
+   - Várias rodadas até ter 1 vetor final
+
+4. ESCALABILIDADE
+   - Funciona com 2 servidores R
+   - Funciona com 10 servidores R
+   - Funciona com 500 servidores R
+   - Funciona com 1000 servidores R
+   - NÃO pressupõe número fixo!
+
+5. LIMITAÇÃO POR PROCESSADORES
+   - Número máximo de threads = número de processadores
+   - Evita criar threads demais
+   - Aproveita paralelismo real
+
+═══════════════════════════════════════════════════════════════
+
+EXEMPLO PRÁTICO:
+───────────────────────────────────────────────────────────────
+
+RECEPTOR (R) com 8 threads ordenadoras:
+  → 8 vetores ordenados
+  → Rodada 1: 4 threads mergeadoras → 4 vetores
+  → Rodada 2: 2 threads mergeadoras → 2 vetores
+  → Rodada 3: 1 thread mergeadora → 1 vetor final ✓
+
+DISTRIBUIDOR (D) com 10 servidores R:
+  → 10 vetores ordenados recebidos
+  → Rodada 1: 4 threads mergeadoras → 5 vetores
+  → Rodada 2: 4 threads mergeadoras → 3 vetores
+  → Rodada 3: 2 threads mergeadoras → 2 vetores
+  → Rodada 4: 1 thread mergeadora → 1 vetor final ✓
+
+═══════════════════════════════════════════════════════════════
+
+CÓDIGO-CHAVE:
+───────────────────────────────────────────────────────────────
+
+1. Mergeadora.java
+   - Thread que faz merge de 2 vetores
+
+2. SupervisoraDeConexaoR.java (linhas ~108-150)
+   - Loop: while (vetoresParaMerge.size() > 1)
+   - Cria lotes de threads mergeadoras
+   - Aguarda todas terminarem
+   - Próxima rodada
+
+3. D.java (linhas ~140-188)
+   - Mesmo padrão do R
+   - Escalável para qualquer quantidade de R's
+
+═══════════════════════════════════════════════════════════════
+
+FRASES PARA FALAR:
+───────────────────────────────────────────────────────────────
+
+✓ "Implementei threads mergeadoras que fazem merge de 2 em 2 
+   em paralelo"
+
+✓ "Quando há muitos vetores, o sistema faz múltiplas rodadas 
+   de merge até reduzir a um único vetor"
+
+✓ "O número máximo de threads mergeadoras simultâneas é 
+   limitado pelo número de processadores"
+
+✓ "O sistema é escalável e funciona com qualquer quantidade 
+   de servidores R, não pressupõe um número fixo"
+
+✓ "Tanto no Receptor quanto no Distribuidor, o merge é feito 
+   usando threads mergeadoras em múltiplas rodadas"
+
+═══════════════════════════════════════════════════════════════
+

@@ -1,0 +1,112 @@
+═══════════════════════════════════════════════════════════════
+  COLA PARA APRESENTAÇÃO - ESCALONAMENTO
+═══════════════════════════════════════════════════════════════
+
+🎯 O QUE FALAR (2-3 minutos):
+───────────────────────────────────────────────────────────────
+
+1. PROBLEMA ANTERIOR (30s)
+   "Na versão anterior, o merge era sequencial, um por vez.
+    Não aproveitava o paralelismo disponível."
+
+2. SOLUÇÃO (1min)
+   "Agora implementei threads mergeadoras que fazem merge
+    de 2 em 2 em paralelo. Quando há muitos vetores, faço
+    múltiplas rodadas até reduzir a um único vetor."
+
+3. DEMONSTRAÇÃO (1min)
+   - Mostrar classe Mergeadora.java
+   - Mostrar loop de múltiplas rodadas no R
+   - Mostrar loop de múltiplas rodadas no D
+   - Executar e mostrar logs
+
+4. CONCLUSÃO (30s)
+   "Está exatamente como pedido: threads mergeadoras em
+    múltiplas rodadas, escalável para qualquer quantidade
+    de servidores R."
+
+═══════════════════════════════════════════════════════════════
+
+💬 FRASES-CHAVE:
+───────────────────────────────────────────────────────────────
+
+✓ "Threads mergeadoras fazem merge de 2 em 2 em paralelo"
+
+✓ "Múltiplas rodadas quando há muitos vetores"
+
+✓ "Limitado pelo número de processadores"
+
+✓ "Escalável para qualquer quantidade de R's (2, 10, 500, 1000)"
+
+✓ "Funciona tanto no Receptor quanto no Distribuidor"
+
+═══════════════════════════════════════════════════════════════
+
+📂 ARQUIVOS PARA MOSTRAR:
+───────────────────────────────────────────────────────────────
+
+1. Mergeadora.java
+   → Mostrar que é uma Thread
+   → Mostrar método run() que faz merge
+
+2. SupervisoraDeConexaoR.java (linhas ~108-150)
+   → Mostrar loop: while (vetoresParaMerge.size() > 1)
+   → Mostrar criação de lotes de threads
+   → Mostrar múltiplas rodadas
+
+3. D.java (linhas ~140-188)
+   → Mesmo padrão do R
+   → Escalável para qualquer quantidade
+
+═══════════════════════════════════════════════════════════════
+
+🔍 O QUE O PROFESSOR VAI VER NOS LOGS:
+───────────────────────────────────────────────────────────────
+
+[R] Rodada 1 de merge: 8 vetores restantes
+[R] Rodada 2 de merge: 4 vetores restantes
+[R] Rodada 3 de merge: 2 vetores restantes
+[R] Rodada 4 de merge: 1 vetor restante
+
+[D] Rodada 1 de merge: 10 vetores restantes
+[D] Rodada 2 de merge: 5 vetores restantes
+[D] Rodada 3 de merge: 3 vetores restantes
+[D] Rodada 4 de merge: 2 vetores restantes
+[D] Rodada 5 de merge: 1 vetor restante
+
+═══════════════════════════════════════════════════════════════
+
+❓ PERGUNTAS POSSÍVEIS E RESPOSTAS:
+───────────────────────────────────────────────────────────────
+
+P: "Como você limita o número de threads?"
+R: "Uso Runtime.getRuntime().availableProcessors() para
+    limitar ao número de processadores."
+
+P: "E se tiver 1000 servidores R?"
+R: "Funciona normalmente. Faz quantas rodadas forem
+    necessárias, sempre limitado pelos processadores."
+
+P: "Como você sabe quando parar?"
+R: "O loop continua enquanto há mais de 1 vetor.
+    Quando sobra apenas 1, significa que terminou."
+
+P: "E número ímpar de vetores?"
+R: "O vetor ímpar passa direto para a próxima rodada
+    sem fazer merge. Na próxima rodada será pareado."
+
+═══════════════════════════════════════════════════════════════
+
+✅ CHECKLIST ANTES DE APRESENTAR:
+───────────────────────────────────────────────────────────────
+
+[ ] Código compilado (javac *.java)
+[ ] Mergeadora.java aberto
+[ ] SupervisoraDeConexaoR.java aberto (linhas ~108-150)
+[ ] D.java aberto (linhas ~140-188)
+[ ] Programa testado localmente
+[ ] Saber explicar a diferença entre antes e agora
+[ ] Entender o fluxo completo
+
+═══════════════════════════════════════════════════════════════
+

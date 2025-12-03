@@ -5,6 +5,11 @@ public class Resposta extends Comunicado {
         this.vetorOrdenado = vetorOrdenado;
     }
 
+    public byte[] getVetor() {
+        return this.vetorOrdenado;
+    }
+    
+    // Método alternativo para compatibilidade (se necessário)
     public byte[] getVetorOrdenado() {
         return this.vetorOrdenado;
     }
